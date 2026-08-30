@@ -205,13 +205,6 @@ async def moment_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Как ты сейчас?", reply_markup=keyboards.energy_keyboard())
 
 
-async def daily_reflection_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Выбери короткий вопрос для конца дня:",
-        reply_markup=keyboards.daily_reflection_keyboard(),
-    )
-
-
 async def daily_focus_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Выбери дополнительный фокус дня. Один вопрос будет приходить в конце дня.",
@@ -428,10 +421,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.text == keyboards.MOMENT_BUTTON_TEXT:
         return
 
-    if update.message.text == keyboards.DAILY_REFLECTION_BUTTON_TEXT:
-        await daily_reflection_button(update, context)
-        return
-
     if update.message.text == keyboards.DAILY_FOCUS_BUTTON_TEXT:
         await daily_focus_button(update, context)
         return
@@ -554,7 +543,6 @@ def main():
     app.add_handler(CommandHandler("timezone", timezone_command))
 
     app.add_handler(MessageHandler(filters.Regex(f"^{keyboards.MOMENT_BUTTON_TEXT}$"), moment_button))
-    app.add_handler(MessageHandler(filters.Regex(f"^{keyboards.DAILY_REFLECTION_BUTTON_TEXT}$"), daily_reflection_button))
     app.add_handler(MessageHandler(filters.Regex(f"^{keyboards.DAILY_FOCUS_BUTTON_TEXT}$"), daily_focus_button))
 
     app.add_handler(CallbackQueryHandler(handle_hours, pattern="^hours:"))

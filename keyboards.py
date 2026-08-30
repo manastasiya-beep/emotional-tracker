@@ -16,7 +16,7 @@ def active_hours_keyboard():
 
 
 def main_menu_keyboard():
-    return ReplyKeyboardMarkup([[MOMENT_BUTTON_TEXT], [DAILY_REFLECTION_BUTTON_TEXT], [DAILY_FOCUS_BUTTON_TEXT]], resize_keyboard=True)
+    return ReplyKeyboardMarkup([[MOMENT_BUTTON_TEXT], [DAILY_FOCUS_BUTTON_TEXT]], resize_keyboard=True)
 
 
 def daily_focus_keyboard():
