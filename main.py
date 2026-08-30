@@ -1,0 +1,366 @@
+import csv
+import io
+from collections import Counter
+from datetime import datetime, timedelta, timezone
+
+from telegram import BotCommand, Update
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
+
+import db
+import keyboards
+import rewards
+from config import (
+    BOT_TOKEN,
+    DAILY_QUESTIONS,
+    FOCUS_TAGS,
+    PAINTINGS,
+    REFLECTION_QUESTIONS,
+    REMINDER_INTERVAL_HOURS,
+    ZONES,
+)
+
+# The bot's own local UTC offset — used only to make /export timestamps
+# readable. Reminder timing and "today" boundaries deliberately avoid this:
+# the server runs in UTC regardless of where the user actually is, so hours
+# a user types (e.g. via /hours) are interpreted as server-clock hours, not
+# their real local hours. A real fix needs the user to tell us their offset.
+LOCAL_TZ = datetime.now().astimezone().tzinfo
+
+WELCOME_TEXT = (
+    "Привет, {name}! Это ArtOfFocus.\n\n"
+    "Идея простая: изучая свои эмоции, ты начинаешь лучше понимать и чужие — "
+    "а заодно глубже видеть смысл в искусстве.\n\n"
+    "Раз в 2-3 часа буду присылать короткий вопрос «как ты сейчас» — отметить нужно "
+    "пару тапов. После последней отметки дня пришлю картину мирового искусства "
+    "с одним вопросом, который помогает посмотреть на неё внимательнее. А если за "
+    "неделю накопится 15 отметок — будет отдельная картина недели с более глубоким "
+    "блоком вопросов для рефлексии.\n\n"
+    "Отмечать момент можно и самой в любое время — кнопкой в меню, не дожидаясь "
+    "напоминания.\n\n"
+    "Когда тебе удобно получать напоминания?"
+)
+
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    db.upsert_user(user.id, user.first_name or "друг")
+    await update.message.reply_text(
+        WELCOME_TEXT.format(name=user.first_name or "друг"),
+        reply_markup=keyboards.active_hours_keyboard(),
+    )
+
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "Раз в 2-3 часа в твоё активное время бот спрашивает «как ты сейчас» — "
+        "выбираешь энергию, приятность и эмоцию, по желанию — на чём был фокус. "
+        "После последней отметки дня — картина и вопрос повнимательнее посмотреть "
+        "на неё. За 15 отметок в неделю — отдельная картина недели с более глубокой "
+        "рефлексией.\n\n"
+        "Команды:\n"
+        "/progress — отметки за неделю\n"
+        "/export — выгрузить все отметки файлом (CSV)\n"
+        "/hours — поменять активные часы\n"
+        "/pause — приостановить напоминания\n"
+        "/resume — снова включить напоминания\n\n"
+        f"Кнопка «{keyboards.MOMENT_BUTTON_TEXT}» всегда доступна, чтобы отметить момент самому.",
+        reply_markup=keyboards.main_menu_keyboard(),
+    )
+
+
+async def pause_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    db.set_paused(update.effective_user.id, True)
+    await update.message.reply_text("Напоминания приостановлены. /resume — включить обратно.")
+
+
+async def resume_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    db.set_paused(update.effective_user.id, False)
+    await update.message.reply_text("Напоминания снова включены.", reply_markup=keyboards.main_menu_keyboard())
+
+
+async def progress_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    since = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    entries = db.entries_since(update.effective_user.id, since)
+    if not entries:
+        await update.message.reply_text("Пока нет отметок за последние 7 дней.")
+        return
+    counts = {}
+    for e in entries:
+        counts[e["zone"]] = counts.get(e["zone"], 0) + 1
+    lines = [f"Отметок за неделю: {len(entries)}"]
+    for zone, label in (("red", "🔴"), ("yellow", "🟡"), ("blue", "🔵"), ("green", "🟢")):
+        if zone in counts:
+            lines.append(f"{label} {ZONES[zone]['label']}: {counts[zone]}")
+    await update.message.reply_text("\n".join(lines))
+
+
+async def hours_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "Когда тебе удобно получать напоминания?", reply_markup=keyboards.active_hours_keyboard()
+    )
+
+
+async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    entries = db.entries_since(update.effective_user.id, "2000-01-01T00:00:00")
+    if not entries:
+        await update.message.reply_text("Пока нет ни одной отметки.")
+        return
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["Дата", "Время", "Зона", "Эмоция", "Фокус"])
+    for e in entries:
+        ts = datetime.fromisoformat(e["created_at"]).astimezone(LOCAL_TZ)
+        writer.writerow([
+            ts.strftime("%Y-%m-%d"),
+            ts.strftime("%H:%M"),
+            ZONES[e["zone"]]["label"],
+            e["emotion"],
+            e["focus_tag"] or "",
+        ])
+
+    doc = io.BytesIO(buf.getvalue().encode("utf-8-sig"))
+    doc.name = "artoffocus_export.csv"
+    await update.message.reply_document(document=doc, filename="artoffocus_export.csv")
+
+
+async def moment_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Как ты сейчас?", reply_markup=keyboards.energy_keyboard())
+
+
+async def handle_hours(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    parts = query.data.split(":")
+
+    if parts[1] == "custom":
+        context.user_data["awaiting_hours"] = True
+        await query.edit_message_text(
+            "Напиши через дефис, во сколько начинать и заканчивать напоминания, "
+            "например: 8-23"
+        )
+        return
+
+    _, start_h, end_h = parts
+    db.set_active_hours(query.from_user.id, int(start_h), int(end_h))
+    await confirm_active_hours(context, query.from_user.id, query)
+
+
+async def confirm_active_hours(context, telegram_id, query=None):
+    text = "Готово! Буду присылать напоминания в этом окне. Меню с кнопкой для ручной отметки — ниже 👇"
+    if query:
+        await query.edit_message_text(text)
+    else:
+        await context.bot.send_message(chat_id=telegram_id, text=text)
+    await context.bot.send_message(
+        chat_id=telegram_id,
+        text="Так и живём:",
+        reply_markup=keyboards.main_menu_keyboard(),
+    )
+
+
+async def handle_energy(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    _, energy = query.data.split(":")
+    await query.edit_message_text("Приятно это тебе сейчас или нет?", reply_markup=keyboards.valence_keyboard(energy))
+
+
+async def handle_zone(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    _, zone = query.data.split(":")
+    context.user_data["draft_zone"] = zone
+    await query.edit_message_text("Какая эмоция ближе всего?", reply_markup=keyboards.emotion_keyboard(zone))
+
+
+async def handle_emotion(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    _, zone, idx = query.data.split(":")
+    emotion = ZONES[zone]["emotions"][int(idx)]
+    context.user_data["draft_emotion"] = emotion
+    await query.edit_message_text("На чём был фокус? (по желанию)", reply_markup=keyboards.focus_keyboard())
+
+
+async def handle_focus(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    _, code = query.data.split(":")
+    zone = context.user_data.pop("draft_zone", None)
+    emotion = context.user_data.pop("draft_emotion", None)
+    focus_tag = None if code == "skip" else FOCUS_TAGS[code]
+
+    if not (zone and emotion):
+        await query.edit_message_text("Что-то пошло не так, попробуй отметить момент ещё раз.")
+        return
+
+    db.add_entry(query.from_user.id, zone, emotion, focus_tag)
+
+    since = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    week_count = len(db.entries_since(query.from_user.id, since))
+    await query.edit_message_text(f"Записано ✅ {emotion}. Отметок за неделю: {week_count}")
+
+    await send_daily_painting_if_due(context, query.from_user.id)
+
+    painting = rewards.maybe_give_weekly_reward(query.from_user.id)
+    if painting:
+        await send_weekly_reward(context, query.from_user.id, painting)
+
+
+async def send_daily_painting_if_due(context: ContextTypes.DEFAULT_TYPE, telegram_id: int):
+    """Sends the day's painting right after what looks like the day's last
+    check-in, instead of a fixed clock time — sidesteps needing to know the
+    user's real timezone, and only fires once per calendar day per user."""
+    user = db.get_user(telegram_id)
+    if not user:
+        return
+
+    now = datetime.now()
+    is_last_checkin = now.hour + REMINDER_INTERVAL_HOURS >= user["active_end"]
+    if not is_last_checkin:
+        return
+
+    today_str = now.strftime("%Y-%m-%d")
+    if not db.should_send_daily_painting(telegram_id, today_str):
+        return
+
+    today_start = datetime.combine(now.date(), datetime.min.time(), tzinfo=timezone.utc).isoformat()
+    entries = db.entries_since(telegram_id, today_start)
+    if len(entries) < 2:
+        return
+
+    zone_counts = Counter(e["zone"] for e in entries)
+    dominant_zone = zone_counts.most_common(1)[0][0]
+    painting = rewards.pick_painting(dominant_zone, exclude_id=user["last_painting_id"])
+    db.set_last_painting(telegram_id, painting["id"])
+
+    question = DAILY_QUESTIONS[int(now.strftime("%j")) % len(DAILY_QUESTIONS)]
+    caption = f"🖼 «{painting['title']}» — {painting['artist']}\n\n{question}"
+    await context.bot.send_photo(chat_id=telegram_id, photo=painting["url"], caption=caption)
+
+
+async def send_weekly_reward(context: ContextTypes.DEFAULT_TYPE, telegram_id: int, painting: dict):
+    questions = "\n".join(f"• {q}" for q in REFLECTION_QUESTIONS)
+    caption = (
+        f"🖼 «{painting['title']}» — {painting['artist']}\n\n"
+        f"Посмотри на эту картину как на метафорическую карту твоей недели:\n\n{questions}\n\n"
+        "Если хочешь — ответь сообщением, сохраню это для тебя в файл."
+    )
+    await context.bot.send_photo(chat_id=telegram_id, photo=painting["url"], caption=caption)
+    context.user_data["awaiting_insight"] = painting["id"]
+
+
+def parse_hours_range(text):
+    try:
+        start_s, end_s = text.strip().split("-")
+        start, end = int(start_s), int(end_s)
+    except ValueError:
+        return None
+    if 0 <= start < end <= 24:
+        return start, end
+    return None
+
+
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.text == keyboards.MOMENT_BUTTON_TEXT:
+        return
+
+    if context.user_data.get("awaiting_hours"):
+        parsed = parse_hours_range(update.message.text)
+        if not parsed:
+            await update.message.reply_text("Не поняла формат. Напиши так: 8-23")
+            return
+        context.user_data.pop("awaiting_hours")
+        db.set_active_hours(update.effective_user.id, *parsed)
+        await confirm_active_hours(context, update.effective_user.id)
+        return
+
+    painting_id = context.user_data.pop("awaiting_insight", None)
+    if not painting_id:
+        return
+    painting = next(p for p in PAINTINGS if p["id"] == painting_id)
+    user = update.effective_user
+
+    content = (
+        f"Имя: {user.first_name}\n"
+        f"Дата: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
+        f"Картина: {painting['title']} — {painting['artist']}\n\n"
+        f"Инсайты:\n{update.message.text}\n"
+    )
+    buf = io.BytesIO(content.encode("utf-8"))
+    buf.name = "insights.txt"
+    await update.message.reply_document(document=buf, filename="insights.txt")
+    await update.message.reply_text("Сохранила ✨ Спасибо, что поделился(ась).")
+
+
+async def send_reminders(context: ContextTypes.DEFAULT_TYPE):
+    now = datetime.now()
+    for user in db.all_active_users():
+        # Runs every cycle regardless of the reminder gate below — this is what
+        # guarantees the daily painting actually fires once near active_end,
+        # instead of depending on the user happening to log an entry right then
+        # (which is all the post-entry call in handle_focus can offer on its own).
+        await send_daily_painting_if_due(context, user["telegram_id"])
+
+        if not (user["active_start"] <= now.hour < user["active_end"]):
+            continue
+        last = user["last_reminder_at"]
+        if last:
+            elapsed_hours = (datetime.now(timezone.utc) - datetime.fromisoformat(last)).total_seconds() / 3600
+            if elapsed_hours < REMINDER_INTERVAL_HOURS:
+                continue
+        await context.bot.send_message(
+            chat_id=user["telegram_id"], text="Как ты сейчас? 👋", reply_markup=keyboards.energy_keyboard()
+        )
+        db.update_last_reminder(user["telegram_id"], datetime.now(timezone.utc).isoformat())
+
+
+async def post_init(application: Application):
+    await application.bot.set_my_commands([
+        BotCommand("start", "Начать / перезапустить"),
+        BotCommand("hours", "Изменить активные часы"),
+        BotCommand("progress", "Отметки за неделю"),
+        BotCommand("export", "Выгрузить все отметки (CSV)"),
+        BotCommand("pause", "Приостановить напоминания"),
+        BotCommand("resume", "Включить напоминания снова"),
+        BotCommand("help", "Как это работает"),
+    ])
+
+
+def main():
+    db.init_db()
+    app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("pause", pause_command))
+    app.add_handler(CommandHandler("resume", resume_command))
+    app.add_handler(CommandHandler("progress", progress_command))
+    app.add_handler(CommandHandler("export", export_command))
+    app.add_handler(CommandHandler("hours", hours_command))
+
+    app.add_handler(MessageHandler(filters.Regex(f"^{keyboards.MOMENT_BUTTON_TEXT}$"), moment_button))
+
+    app.add_handler(CallbackQueryHandler(handle_hours, pattern="^hours:"))
+    app.add_handler(CallbackQueryHandler(handle_energy, pattern="^nrg:"))
+    app.add_handler(CallbackQueryHandler(handle_zone, pattern="^zone:"))
+    app.add_handler(CallbackQueryHandler(handle_emotion, pattern="^emo:"))
+    app.add_handler(CallbackQueryHandler(handle_focus, pattern="^focus:"))
+
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+
+    app.job_queue.run_repeating(send_reminders, interval=1800, first=30)
+
+    app.run_polling()
+
+
+if __name__ == "__main__":
+    main()

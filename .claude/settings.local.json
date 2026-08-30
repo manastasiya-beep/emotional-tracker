@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:render.com)",
+      "Bash(timeout 15 railway login)",
+      "Bash(railway login *)",
+      "Bash(railway init *)",
+      "Bash(railway variables *)",
+      "Bash(railway --help)",
+      "Bash(railway logs *)",
+      "Bash(railway status *)",
+      "Bash(railway down *)",
+      "Bash(railway up *)",
+      "Bash(railway restart *)",
+      "Bash(railway service *)",
+      "Bash(source venv/bin/activate && python main.py)"
+    ]
+  }
+}
