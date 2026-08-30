@@ -4,6 +4,7 @@ from config import ZONES, FOCUS_TAGS
 
 MOMENT_BUTTON_TEXT = "📝 Отметить момент"
 DAILY_REFLECTION_BUTTON_TEXT = "💬 Как прошёл день?"
+WEEKLY_SUMMARY_BUTTON_TEXT = "📊 Итог недели"
 
 
 def active_hours_keyboard():
@@ -15,7 +16,16 @@ def active_hours_keyboard():
 
 
 def main_menu_keyboard():
-    return ReplyKeyboardMarkup([[MOMENT_BUTTON_TEXT], [DAILY_REFLECTION_BUTTON_TEXT]], resize_keyboard=True)
+    return ReplyKeyboardMarkup([[MOMENT_BUTTON_TEXT], [DAILY_REFLECTION_BUTTON_TEXT], [WEEKLY_SUMMARY_BUTTON_TEXT]], resize_keyboard=True)
+
+
+def weekly_reflection_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("💭 Что я чувствовал?", callback_data="weekly:feeling")],
+        [InlineKeyboardButton("🎯 Что было важно?", callback_data="weekly:important")],
+        [InlineKeyboardButton("🌟 Что было хорошо?", callback_data="weekly:good")],
+        [InlineKeyboardButton("Не сейчас", callback_data="weekly:skip")],
+    ])
 
 
 def daily_reflection_keyboard():

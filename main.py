@@ -101,12 +101,11 @@ async def resume_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Напоминания снова включены.", reply_markup=keyboards.main_menu_keyboard())
 
 
-async def progress_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def build_weekly_summary(telegram_id: int) -> str:
     since = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-    entries = db.entries_since(update.effective_user.id, since)
+    entries = db.entries_since(telegram_id, since)
     if not entries:
-        await update.message.reply_text("Пока нет отметок за последние 7 дней.")
-        return
+        return "Пока нет отметок за последние 7 дней."
 
     counts = {}
     daily_counts = {}
@@ -134,7 +133,41 @@ async def progress_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for day, count in recent_days:
             lines.append(f"- {day}: {count} отметок")
 
-    await update.message.reply_text("\n".join(lines))
+    return "\n".join(lines)
+
+
+async def progress_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    summary = build_weekly_summary(update.effective_user.id)
+    await update.message.reply_text(
+        summary,
+        reply_markup=keyboards.weekly_reflection_keyboard(),
+    )
+
+
+async def weekly_summary_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    summary = build_weekly_summary(update.effective_user.id)
+    await update.message.reply_text(
+        summary,
+        reply_markup=keyboards.weekly_reflection_keyboard(),
+    )
+
+
+async def handle_weekly_reflection_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    _, question_type = query.data.split(":")
+
+    if question_type == "skip":
+        await query.edit_message_text("Понятно. Можно вернуться к итогам недели позже.")
+        return
+
+    prompts = {
+        "feeling": "Что ты чувствовал(а) в течение этой недели в целом?",
+        "important": "Что было особенно важным или тревожным на этой неделе?",
+        "good": "Что было хорошего, ресурсного или поддерживающего в эту неделю?",
+    }
+    context.user_data["awaiting_weekly_reflection"] = question_type
+    await query.edit_message_text(f"{prompts[question_type]}\n\nНапиши коротко в одном сообщении.")
 
 
 async def hours_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -366,6 +399,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await daily_reflection_button(update, context)
         return
 
+    if update.message.text == keyboards.WEEKLY_SUMMARY_BUTTON_TEXT:
+        await weekly_summary_button(update, context)
+        return
+
     if context.user_data.get("awaiting_hours"):
         parsed = parse_hours_range(update.message.text)
         if not parsed:
@@ -386,6 +423,16 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("awaiting_timezone")
         db.set_timezone_name(update.effective_user.id, tz_name)
         await update.message.reply_text(f"Часовой пояс сохранён: {tz_name}.")
+        return
+
+    weekly_reflection_type = context.user_data.pop("awaiting_weekly_reflection", None)
+    if weekly_reflection_type:
+        answer = update.message.text.strip()
+        if not answer:
+            await update.message.reply_text("Напиши короткий ответ, чтобы я сохранила его для тебя.")
+            return
+        db.add_daily_reflection(update.effective_user.id, f"weekly:{weekly_reflection_type}", answer)
+        await update.message.reply_text("Спасибо. Я сохранила твой ответ в недельную рефлексию ✨")
         return
 
     daily_reflection_type = context.user_data.pop("awaiting_daily_reflection", None)
@@ -465,8 +512,10 @@ def main():
 
     app.add_handler(MessageHandler(filters.Regex(f"^{keyboards.MOMENT_BUTTON_TEXT}$"), moment_button))
     app.add_handler(MessageHandler(filters.Regex(f"^{keyboards.DAILY_REFLECTION_BUTTON_TEXT}$"), daily_reflection_button))
+    app.add_handler(MessageHandler(filters.Regex(f"^{keyboards.WEEKLY_SUMMARY_BUTTON_TEXT}$"), weekly_summary_button))
 
     app.add_handler(CallbackQueryHandler(handle_hours, pattern="^hours:"))
+    app.add_handler(CallbackQueryHandler(handle_weekly_reflection_choice, pattern="^weekly:"))
     app.add_handler(CallbackQueryHandler(handle_daily_reflection_choice, pattern="^dailyq:"))
     app.add_handler(CallbackQueryHandler(handle_deep_reflection_choice, pattern="^deep:"))
     app.add_handler(CallbackQueryHandler(handle_energy, pattern="^nrg:"))
