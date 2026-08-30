@@ -37,6 +37,14 @@ CREATE TABLE IF NOT EXISTS daily_reflections (
     FOREIGN KEY (telegram_id) REFERENCES users (telegram_id)
 );
 
+CREATE TABLE IF NOT EXISTS user_daily_focus (
+    telegram_id INTEGER PRIMARY KEY,
+    question_type TEXT,
+    enabled INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (telegram_id) REFERENCES users (telegram_id)
+);
+
 CREATE TABLE IF NOT EXISTS weekly_rewards (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     telegram_id INTEGER NOT NULL,
@@ -121,6 +129,26 @@ def add_entry(telegram_id, zone, emotion, focus_tag=None):
             "INSERT INTO entries (telegram_id, created_at, zone, emotion, focus_tag) VALUES (?, ?, ?, ?, ?)",
             (telegram_id, datetime.now(timezone.utc).isoformat(), zone, emotion, focus_tag),
         )
+
+
+def set_daily_focus(telegram_id, question_type=None):
+    now_iso = datetime.now(timezone.utc).isoformat()
+    enabled = 0 if question_type is None else 1
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO user_daily_focus (telegram_id, question_type, enabled, updated_at) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(telegram_id) DO UPDATE SET question_type=excluded.question_type, enabled=excluded.enabled, updated_at=excluded.updated_at",
+            (telegram_id, question_type, enabled, now_iso),
+        )
+
+
+def get_daily_focus(telegram_id):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM user_daily_focus WHERE telegram_id=?",
+            (telegram_id,),
+        ).fetchone()
+        return dict(row) if row else None
 
 
 def add_daily_reflection(telegram_id, question_type, answer_text):

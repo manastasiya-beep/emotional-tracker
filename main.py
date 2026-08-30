@@ -20,6 +20,7 @@ from zoneinfo import ZoneInfo
 
 from config import (
     BOT_TOKEN,
+    DAILY_FOCUS_PROMPTS,
     DAILY_QUESTIONS,
     DEEP_REFLECTION_QUESTIONS,
     END_OF_DAY_PROMPTS,
@@ -27,6 +28,7 @@ from config import (
     PAINTINGS,
     REFLECTION_QUESTIONS,
     REMINDER_INTERVAL_HOURS,
+    WEEKLY_DEEP_QUESTIONS,
     ZONES,
 )
 
@@ -211,6 +213,29 @@ async def daily_reflection_button(update: Update, context: ContextTypes.DEFAULT_
     )
 
 
+async def daily_focus_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "Выбери дополнительный фокус дня. Один вопрос будет приходить в конце дня.",
+        reply_markup=keyboards.daily_focus_keyboard(),
+    )
+
+
+async def handle_daily_focus_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    _, question_type = query.data.split(":")
+
+    if question_type == "disable":
+        db.set_daily_focus(query.from_user.id, None)
+        await query.edit_message_text("Дополнительный фокус дня отключён.")
+        return
+
+    prompt = DAILY_FOCUS_PROMPTS[question_type]
+    db.set_daily_focus(query.from_user.id, question_type)
+    context.user_data["awaiting_daily_focus_response"] = question_type
+    await query.edit_message_text(f"{prompt}\n\nНапиши коротко в одном сообщении — ответ сохранится в дневник.")
+
+
 async def handle_daily_reflection_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -368,9 +393,15 @@ async def send_daily_painting_if_due(context: ContextTypes.DEFAULT_TYPE, telegra
         reply_markup=keyboards.daily_reflection_keyboard(),
     )
 
+    focus = db.get_daily_focus(telegram_id)
+    if focus and focus.get("enabled"):
+        prompt = DAILY_FOCUS_PROMPTS[focus["question_type"]]
+        await context.bot.send_message(chat_id=telegram_id, text=f"Доп. фокус дня: {prompt}\n\nНапиши коротко в одном сообщении.")
+        context.user_data["awaiting_daily_focus_response"] = focus["question_type"]
+
 
 async def send_weekly_reward(context: ContextTypes.DEFAULT_TYPE, telegram_id: int, painting: dict):
-    questions = "\n".join(f"• {q}" for q in REFLECTION_QUESTIONS)
+    questions = "\n".join(f"• {q}" for q in WEEKLY_DEEP_QUESTIONS)
     caption = (
         f"🖼 «{painting['title']}» — {painting['artist']}\n\n"
         f"Посмотри на эту картину как на метафорическую карту твоей недели:\n\n{questions}\n\n"
@@ -399,8 +430,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await daily_reflection_button(update, context)
         return
 
-    if update.message.text == keyboards.WEEKLY_SUMMARY_BUTTON_TEXT:
-        await weekly_summary_button(update, context)
+    if update.message.text == keyboards.DAILY_FOCUS_BUTTON_TEXT:
+        await daily_focus_button(update, context)
         return
 
     if context.user_data.get("awaiting_hours"):
@@ -423,6 +454,16 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("awaiting_timezone")
         db.set_timezone_name(update.effective_user.id, tz_name)
         await update.message.reply_text(f"Часовой пояс сохранён: {tz_name}.")
+        return
+
+    daily_focus_response_type = context.user_data.pop("awaiting_daily_focus_response", None)
+    if daily_focus_response_type:
+        answer = update.message.text.strip()
+        if not answer:
+            await update.message.reply_text("Напиши короткий ответ, чтобы я сохранила его для тебя.")
+            return
+        db.add_daily_reflection(update.effective_user.id, f"daily_focus:{daily_focus_response_type}", answer)
+        await update.message.reply_text("Спасибо. Я сохранила ответ на дополнительный фокус дня ✨")
         return
 
     weekly_reflection_type = context.user_data.pop("awaiting_weekly_reflection", None)
@@ -512,10 +553,11 @@ def main():
 
     app.add_handler(MessageHandler(filters.Regex(f"^{keyboards.MOMENT_BUTTON_TEXT}$"), moment_button))
     app.add_handler(MessageHandler(filters.Regex(f"^{keyboards.DAILY_REFLECTION_BUTTON_TEXT}$"), daily_reflection_button))
-    app.add_handler(MessageHandler(filters.Regex(f"^{keyboards.WEEKLY_SUMMARY_BUTTON_TEXT}$"), weekly_summary_button))
+    app.add_handler(MessageHandler(filters.Regex(f"^{keyboards.DAILY_FOCUS_BUTTON_TEXT}$"), daily_focus_button))
 
     app.add_handler(CallbackQueryHandler(handle_hours, pattern="^hours:"))
     app.add_handler(CallbackQueryHandler(handle_weekly_reflection_choice, pattern="^weekly:"))
+    app.add_handler(CallbackQueryHandler(handle_daily_focus_choice, pattern="^focus:"))
     app.add_handler(CallbackQueryHandler(handle_daily_reflection_choice, pattern="^dailyq:"))
     app.add_handler(CallbackQueryHandler(handle_deep_reflection_choice, pattern="^deep:"))
     app.add_handler(CallbackQueryHandler(handle_energy, pattern="^nrg:"))
