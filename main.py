@@ -19,6 +19,7 @@ import rewards
 from zoneinfo import ZoneInfo
 
 from config import (
+    ART_WEEKLY_REFLECTION_PROMPTS,
     BOT_TOKEN,
     DAILY_FOCUS_PROMPTS,
     DAILY_QUESTIONS,
@@ -26,9 +27,7 @@ from config import (
     END_OF_DAY_PROMPTS,
     FOCUS_TAGS,
     PAINTINGS,
-    REFLECTION_QUESTIONS,
     REMINDER_INTERVAL_HOURS,
-    WEEKLY_DEEP_QUESTIONS,
     ZONES,
 )
 
@@ -401,10 +400,13 @@ async def send_daily_painting_if_due(context: ContextTypes.DEFAULT_TYPE, telegra
 
 
 async def send_weekly_reward(context: ContextTypes.DEFAULT_TYPE, telegram_id: int, painting: dict):
-    questions = "\n".join(f"• {q}" for q in WEEKLY_DEEP_QUESTIONS)
+    user = db.get_user(telegram_id)
+    name = user["name"] if user else "друг"
+    questions = "\n".join(f"• {q}" for q in ART_WEEKLY_REFLECTION_PROMPTS)
     caption = (
         f"🖼 «{painting['title']}» — {painting['artist']}\n\n"
-        f"Посмотри на эту картину как на метафорическую карту твоей недели:\n\n{questions}\n\n"
+        f"{name}, посмотри на этот шедевр как на метафорическую карту твоей недели. "
+        f"Ответь себе на вопросы:\n\n{questions}\n\n"
         "Если хочешь — ответь сообщением, сохраню это для тебя в файл."
     )
     await context.bot.send_photo(chat_id=telegram_id, photo=painting["url"], caption=caption)
