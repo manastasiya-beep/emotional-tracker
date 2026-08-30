@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     active_end INTEGER NOT NULL DEFAULT 21,
     paused INTEGER NOT NULL DEFAULT 0,
     last_reminder_at TEXT,
+    timezone_name TEXT,
     created_at TEXT NOT NULL
 );
 
@@ -23,6 +24,16 @@ CREATE TABLE IF NOT EXISTS entries (
     zone TEXT NOT NULL,
     emotion TEXT NOT NULL,
     focus_tag TEXT,
+    FOREIGN KEY (telegram_id) REFERENCES users (telegram_id)
+);
+
+CREATE TABLE IF NOT EXISTS daily_reflections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    telegram_id INTEGER NOT NULL,
+    question_type TEXT NOT NULL,
+    answer_text TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT,
     FOREIGN KEY (telegram_id) REFERENCES users (telegram_id)
 );
 
@@ -50,7 +61,7 @@ def get_conn():
 def init_db():
     with get_conn() as conn:
         conn.executescript(SCHEMA)
-        for column in ("last_mosaic_date TEXT", "last_painting_id INTEGER"):
+        for column in ("last_mosaic_date TEXT", "last_painting_id INTEGER", "timezone_name TEXT"):
             try:
                 conn.execute(f"ALTER TABLE users ADD COLUMN {column}")
             except sqlite3.OperationalError:
@@ -96,12 +107,38 @@ def update_last_reminder(telegram_id, when_iso):
         conn.execute("UPDATE users SET last_reminder_at=? WHERE telegram_id=?", (when_iso, telegram_id))
 
 
+def set_timezone_name(telegram_id, timezone_name):
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE users SET timezone_name=? WHERE telegram_id=?",
+            (timezone_name, telegram_id),
+        )
+
+
 def add_entry(telegram_id, zone, emotion, focus_tag=None):
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO entries (telegram_id, created_at, zone, emotion, focus_tag) VALUES (?, ?, ?, ?, ?)",
             (telegram_id, datetime.now(timezone.utc).isoformat(), zone, emotion, focus_tag),
         )
+
+
+def add_daily_reflection(telegram_id, question_type, answer_text):
+    with get_conn() as conn:
+        expires_at = (datetime.now(timezone.utc) + timedelta(days=90)).isoformat()
+        conn.execute(
+            "INSERT INTO daily_reflections (telegram_id, question_type, answer_text, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",
+            (telegram_id, question_type, answer_text, datetime.now(timezone.utc).isoformat(), expires_at),
+        )
+
+
+def daily_reflections_since(telegram_id, since_iso):
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM daily_reflections WHERE telegram_id=? AND created_at >= ? ORDER BY created_at",
+            (telegram_id, since_iso),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
 
 def should_send_daily_painting(telegram_id, today_str):

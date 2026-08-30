@@ -3,6 +3,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMa
 from config import ZONES, FOCUS_TAGS
 
 MOMENT_BUTTON_TEXT = "📝 Отметить момент"
+DAILY_REFLECTION_BUTTON_TEXT = "💬 Как прошёл день?"
 
 
 def active_hours_keyboard():
@@ -14,7 +15,15 @@ def active_hours_keyboard():
 
 
 def main_menu_keyboard():
-    return ReplyKeyboardMarkup([[MOMENT_BUTTON_TEXT]], resize_keyboard=True)
+    return ReplyKeyboardMarkup([[MOMENT_BUTTON_TEXT], [DAILY_REFLECTION_BUTTON_TEXT]], resize_keyboard=True)
+
+
+def daily_reflection_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🌟 Что сегодня было хорошего?", callback_data="dailyq:gratitude")],
+        [InlineKeyboardButton("✅ Что сегодня удалось?", callback_data="dailyq:success")],
+        [InlineKeyboardButton("Пропустить", callback_data="dailyq:skip")],
+    ])
 
 
 def energy_keyboard():

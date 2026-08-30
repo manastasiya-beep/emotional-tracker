@@ -19,6 +19,7 @@ import rewards
 from config import (
     BOT_TOKEN,
     DAILY_QUESTIONS,
+    END_OF_DAY_PROMPTS,
     FOCUS_TAGS,
     PAINTINGS,
     REFLECTION_QUESTIONS,
@@ -135,6 +136,27 @@ async def moment_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Как ты сейчас?", reply_markup=keyboards.energy_keyboard())
 
 
+async def daily_reflection_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "Выбери короткий вопрос для конца дня:",
+        reply_markup=keyboards.daily_reflection_keyboard(),
+    )
+
+
+async def handle_daily_reflection_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    _, question_type = query.data.split(":")
+
+    if question_type == "skip":
+        await query.edit_message_text("Понятно. Если захочешь — можно вернуться позже.")
+        return
+
+    context.user_data["awaiting_daily_reflection"] = question_type
+    prompt = END_OF_DAY_PROMPTS[question_type]
+    await query.edit_message_text(f"{prompt}\n\nНапиши коротко в одном сообщении.")
+
+
 async def handle_hours(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -245,6 +267,11 @@ async def send_daily_painting_if_due(context: ContextTypes.DEFAULT_TYPE, telegra
     question = DAILY_QUESTIONS[int(now.strftime("%j")) % len(DAILY_QUESTIONS)]
     caption = f"🖼 «{painting['title']}» — {painting['artist']}\n\n{question}"
     await context.bot.send_photo(chat_id=telegram_id, photo=painting["url"], caption=caption)
+    await context.bot.send_message(
+        chat_id=telegram_id,
+        text="Если хочешь, можно быстро закрыть день:",
+        reply_markup=keyboards.daily_reflection_keyboard(),
+    )
 
 
 async def send_weekly_reward(context: ContextTypes.DEFAULT_TYPE, telegram_id: int, painting: dict):
@@ -273,6 +300,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.text == keyboards.MOMENT_BUTTON_TEXT:
         return
 
+    if update.message.text == keyboards.DAILY_REFLECTION_BUTTON_TEXT:
+        await daily_reflection_button(update, context)
+        return
+
     if context.user_data.get("awaiting_hours"):
         parsed = parse_hours_range(update.message.text)
         if not parsed:
@@ -281,6 +312,16 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("awaiting_hours")
         db.set_active_hours(update.effective_user.id, *parsed)
         await confirm_active_hours(context, update.effective_user.id)
+        return
+
+    daily_reflection_type = context.user_data.pop("awaiting_daily_reflection", None)
+    if daily_reflection_type:
+        answer = update.message.text.strip()
+        if not answer:
+            await update.message.reply_text("Напиши короткий ответ, чтобы я сохранила его для тебя.")
+            return
+        db.add_daily_reflection(update.effective_user.id, daily_reflection_type, answer)
+        await update.message.reply_text("Спасибо. Я сохранила твой ответ для дневника ✨")
         return
 
     painting_id = context.user_data.pop("awaiting_insight", None)
@@ -348,8 +389,10 @@ def main():
     app.add_handler(CommandHandler("hours", hours_command))
 
     app.add_handler(MessageHandler(filters.Regex(f"^{keyboards.MOMENT_BUTTON_TEXT}$"), moment_button))
+    app.add_handler(MessageHandler(filters.Regex(f"^{keyboards.DAILY_REFLECTION_BUTTON_TEXT}$"), daily_reflection_button))
 
     app.add_handler(CallbackQueryHandler(handle_hours, pattern="^hours:"))
+    app.add_handler(CallbackQueryHandler(handle_daily_reflection_choice, pattern="^dailyq:"))
     app.add_handler(CallbackQueryHandler(handle_energy, pattern="^nrg:"))
     app.add_handler(CallbackQueryHandler(handle_zone, pattern="^zone:"))
     app.add_handler(CallbackQueryHandler(handle_emotion, pattern="^emo:"))

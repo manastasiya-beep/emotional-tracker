@@ -86,6 +86,11 @@ REFLECTION_QUESTIONS = [
     "Какой главный вопрос эта картина задаёт тебе?",
 ]
 
+END_OF_DAY_PROMPTS = {
+    "gratitude": "Что сегодня было хорошего? За что ты благодарен(а)?",
+    "success": "Что сегодня получилось особенно хорошо?",
+}
+
 WEEKLY_ENTRIES_THRESHOLD = 15
 WEEKLY_WINDOW_DAYS = 7
 REMINDER_INTERVAL_HOURS = 2.5
