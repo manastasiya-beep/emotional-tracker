@@ -16,9 +16,12 @@ from telegram.ext import (
 import db
 import keyboards
 import rewards
+from zoneinfo import ZoneInfo
+
 from config import (
     BOT_TOKEN,
     DAILY_QUESTIONS,
+    DEEP_REFLECTION_QUESTIONS,
     END_OF_DAY_PROMPTS,
     FOCUS_TAGS,
     PAINTINGS,
@@ -33,6 +36,17 @@ from config import (
 # a user types (e.g. via /hours) are interpreted as server-clock hours, not
 # their real local hours. A real fix needs the user to tell us their offset.
 LOCAL_TZ = datetime.now().astimezone().tzinfo
+
+
+def user_timezone(telegram_id: int):
+    user = db.get_user(telegram_id)
+    if not user or not user.get("timezone_name"):
+        return timezone.utc
+    try:
+        return ZoneInfo(user["timezone_name"])
+    except Exception:
+        return timezone.utc
+
 
 WELCOME_TEXT = (
     "Привет, {name}! Это ArtOfFocus.\n\n"
@@ -69,6 +83,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/progress — отметки за неделю\n"
         "/export — выгрузить все отметки файлом (CSV)\n"
         "/hours — поменять активные часы\n"
+        "/timezone — указать часовой пояс\n"
         "/pause — приостановить напоминания\n"
         "/resume — снова включить напоминания\n\n"
         f"Кнопка «{keyboards.MOMENT_BUTTON_TEXT}» всегда доступна, чтобы отметить момент самому.",
@@ -168,6 +183,13 @@ async def handle_daily_reflection_choice(update: Update, context: ContextTypes.D
     await query.answer()
     _, question_type = query.data.split(":")
 
+    if question_type == "deep":
+        await query.edit_message_text(
+            "Сделаем глубже: выбери один вопрос.",
+            reply_markup=keyboards.deep_reflection_keyboard(),
+        )
+        return
+
     if question_type == "skip":
         await query.edit_message_text("Понятно. Если захочешь — можно вернуться позже.")
         return
@@ -175,6 +197,28 @@ async def handle_daily_reflection_choice(update: Update, context: ContextTypes.D
     context.user_data["awaiting_daily_reflection"] = question_type
     prompt = END_OF_DAY_PROMPTS[question_type]
     await query.edit_message_text(f"{prompt}\n\nНапиши коротко в одном сообщении.")
+
+
+async def handle_deep_reflection_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    _, question_type = query.data.split(":")
+
+    if question_type == "skip":
+        await query.edit_message_text("Понятно. Короткий дневник останется для тебя доступен позже.")
+        return
+
+    context.user_data["awaiting_daily_reflection"] = f"deep:{question_type}"
+    prompt = DEEP_REFLECTION_QUESTIONS[question_type]
+    await query.edit_message_text(f"{prompt}\n\nНапиши коротко в одном сообщении.")
+
+
+async def timezone_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "Укажи часовой пояс в формате IANA, например: Europe/Moscow, Europe/Berlin, UTC\n"
+        "Если не уверена — можно написать просто UTC."
+    )
+    context.user_data["awaiting_timezone"] = True
 
 
 async def handle_hours(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -258,23 +302,21 @@ async def handle_focus(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def send_daily_painting_if_due(context: ContextTypes.DEFAULT_TYPE, telegram_id: int):
-    """Sends the day's painting right after what looks like the day's last
-    check-in, instead of a fixed clock time — sidesteps needing to know the
-    user's real timezone, and only fires once per calendar day per user."""
     user = db.get_user(telegram_id)
     if not user:
         return
 
-    now = datetime.now()
-    is_last_checkin = now.hour + REMINDER_INTERVAL_HOURS >= user["active_end"]
+    tz = user_timezone(telegram_id)
+    now_local = datetime.now(tz)
+    is_last_checkin = now_local.hour + REMINDER_INTERVAL_HOURS >= user["active_end"]
     if not is_last_checkin:
         return
 
-    today_str = now.strftime("%Y-%m-%d")
+    today_str = now_local.strftime("%Y-%m-%d")
     if not db.should_send_daily_painting(telegram_id, today_str):
         return
 
-    today_start = datetime.combine(now.date(), datetime.min.time(), tzinfo=timezone.utc).isoformat()
+    today_start = datetime.combine(now_local.date(), datetime.min.time(), tzinfo=tz).isoformat()
     entries = db.entries_since(telegram_id, today_start)
     if len(entries) < 2:
         return
@@ -284,7 +326,7 @@ async def send_daily_painting_if_due(context: ContextTypes.DEFAULT_TYPE, telegra
     painting = rewards.pick_painting(dominant_zone, exclude_id=user["last_painting_id"])
     db.set_last_painting(telegram_id, painting["id"])
 
-    question = DAILY_QUESTIONS[int(now.strftime("%j")) % len(DAILY_QUESTIONS)]
+    question = DAILY_QUESTIONS[int(now_local.strftime("%j")) % len(DAILY_QUESTIONS)]
     caption = f"🖼 «{painting['title']}» — {painting['artist']}\n\n{question}"
     await context.bot.send_photo(chat_id=telegram_id, photo=painting["url"], caption=caption)
     await context.bot.send_message(
@@ -334,6 +376,18 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await confirm_active_hours(context, update.effective_user.id)
         return
 
+    if context.user_data.get("awaiting_timezone"):
+        tz_name = update.message.text.strip()
+        try:
+            ZoneInfo(tz_name)
+        except Exception:
+            await update.message.reply_text("Не смогла распознать такой часовой пояс. Попробуй ещё раз, например: Europe/Moscow или UTC.")
+            return
+        context.user_data.pop("awaiting_timezone")
+        db.set_timezone_name(update.effective_user.id, tz_name)
+        await update.message.reply_text(f"Часовой пояс сохранён: {tz_name}.")
+        return
+
     daily_reflection_type = context.user_data.pop("awaiting_daily_reflection", None)
     if daily_reflection_type:
         answer = update.message.text.strip()
@@ -363,31 +417,31 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def send_reminders(context: ContextTypes.DEFAULT_TYPE):
-    now = datetime.now()
     for user in db.all_active_users():
-        # Runs every cycle regardless of the reminder gate below — this is what
-        # guarantees the daily painting actually fires once near active_end,
-        # instead of depending on the user happening to log an entry right then
-        # (which is all the post-entry call in handle_focus can offer on its own).
+        tz = user_timezone(user["telegram_id"])
+        now_local = datetime.now(tz)
+        now_utc = datetime.now(timezone.utc)
+
         await send_daily_painting_if_due(context, user["telegram_id"])
 
-        if not (user["active_start"] <= now.hour < user["active_end"]):
+        if not (user["active_start"] <= now_local.hour < user["active_end"]):
             continue
         last = user["last_reminder_at"]
         if last:
-            elapsed_hours = (datetime.now(timezone.utc) - datetime.fromisoformat(last)).total_seconds() / 3600
+            elapsed_hours = (now_utc - datetime.fromisoformat(last)).total_seconds() / 3600
             if elapsed_hours < REMINDER_INTERVAL_HOURS:
                 continue
         await context.bot.send_message(
             chat_id=user["telegram_id"], text="Как ты сейчас? 👋", reply_markup=keyboards.energy_keyboard()
         )
-        db.update_last_reminder(user["telegram_id"], datetime.now(timezone.utc).isoformat())
+        db.update_last_reminder(user["telegram_id"], now_utc.isoformat())
 
 
 async def post_init(application: Application):
     await application.bot.set_my_commands([
         BotCommand("start", "Начать / перезапустить"),
         BotCommand("hours", "Изменить активные часы"),
+        BotCommand("timezone", "Указать часовой пояс"),
         BotCommand("progress", "Отметки за неделю"),
         BotCommand("export", "Выгрузить все отметки (CSV)"),
         BotCommand("pause", "Приостановить напоминания"),
@@ -407,12 +461,14 @@ def main():
     app.add_handler(CommandHandler("progress", progress_command))
     app.add_handler(CommandHandler("export", export_command))
     app.add_handler(CommandHandler("hours", hours_command))
+    app.add_handler(CommandHandler("timezone", timezone_command))
 
     app.add_handler(MessageHandler(filters.Regex(f"^{keyboards.MOMENT_BUTTON_TEXT}$"), moment_button))
     app.add_handler(MessageHandler(filters.Regex(f"^{keyboards.DAILY_REFLECTION_BUTTON_TEXT}$"), daily_reflection_button))
 
     app.add_handler(CallbackQueryHandler(handle_hours, pattern="^hours:"))
     app.add_handler(CallbackQueryHandler(handle_daily_reflection_choice, pattern="^dailyq:"))
+    app.add_handler(CallbackQueryHandler(handle_deep_reflection_choice, pattern="^deep:"))
     app.add_handler(CallbackQueryHandler(handle_energy, pattern="^nrg:"))
     app.add_handler(CallbackQueryHandler(handle_zone, pattern="^zone:"))
     app.add_handler(CallbackQueryHandler(handle_emotion, pattern="^emo:"))

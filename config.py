@@ -90,7 +90,11 @@ END_OF_DAY_PROMPTS = {
     "gratitude": "Что сегодня было хорошего? За что ты благодарен(а)?",
     "success": "Что сегодня получилось особенно хорошо?",
 }
-
+DEEP_REFLECTION_QUESTIONS = {
+    "body": "Какое ощущение в теле сейчас наиболее заметно?",
+    "thought": "Какая мысль или интерпретация связана с этим состоянием?",
+    "value": "Какая ценность сейчас особенно важна или нарушена?",
+}
 WEEKLY_ENTRIES_THRESHOLD = 15
 WEEKLY_WINDOW_DAYS = 7
 REMINDER_INTERVAL_HOURS = 2.5

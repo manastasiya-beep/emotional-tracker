@@ -22,7 +22,17 @@ def daily_reflection_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🌟 Что сегодня было хорошего?", callback_data="dailyq:gratitude")],
         [InlineKeyboardButton("✅ Что сегодня удалось?", callback_data="dailyq:success")],
+        [InlineKeyboardButton("🧠 Хочу глубже", callback_data="dailyq:deep")],
         [InlineKeyboardButton("Пропустить", callback_data="dailyq:skip")],
+    ])
+
+
+def deep_reflection_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🫧 Что я чувствую в теле?", callback_data="deep:body")],
+        [InlineKeyboardButton("💭 Какая мысль за этим стоит?", callback_data="deep:thought")],
+        [InlineKeyboardButton("🎯 Какая ценность важна или нарушена?", callback_data="deep:value")],
+        [InlineKeyboardButton("Не сейчас", callback_data="deep:skip")],
     ])
 
 
