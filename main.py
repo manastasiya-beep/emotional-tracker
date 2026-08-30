@@ -92,13 +92,33 @@ async def progress_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not entries:
         await update.message.reply_text("Пока нет отметок за последние 7 дней.")
         return
+
     counts = {}
+    daily_counts = {}
     for e in entries:
-        counts[e["zone"]] = counts.get(e["zone"], 0) + 1
-    lines = [f"Отметок за неделю: {len(entries)}"]
+        zone = e["zone"]
+        counts[zone] = counts.get(zone, 0) + 1
+
+        created_at = datetime.fromisoformat(e["created_at"]).astimezone(timezone.utc)
+        day = created_at.date().isoformat()
+        daily_counts[day] = daily_counts.get(day, 0) + 1
+
+    dominant_zone = max(counts.items(), key=lambda item: item[1])[0]
+    lines = [
+        f"Отметок за неделю: {len(entries)}",
+        f"Доминирующая зона: {ZONES[dominant_zone]['label']}",
+    ]
+
     for zone, label in (("red", "🔴"), ("yellow", "🟡"), ("blue", "🔵"), ("green", "🟢")):
         if zone in counts:
             lines.append(f"{label} {ZONES[zone]['label']}: {counts[zone]}")
+
+    recent_days = sorted(daily_counts.items())[-3:]
+    if recent_days:
+        lines.append("Последние дни:")
+        for day, count in recent_days:
+            lines.append(f"- {day}: {count} отметок")
+
     await update.message.reply_text("\n".join(lines))
 
 
