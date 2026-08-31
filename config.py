@@ -45,12 +45,28 @@ PAINTINGS = [
         "url": "https://upload.wikimedia.org/wikipedia/commons/8/82/Francisco_de_Goya%2C_Saturno_devorando_a_su_hijo_%281819-1823%29.jpg",
     },
     {
+        "id": 9, "zone": "red", "title": "Спящая цыганка", "artist": "Густав Курбе",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/f/f3/Gustave_Courbet_-_The_Sleeping_Gypsy_%28The_Sleeping_Gipsy%29.jpg",
+    },
+    {
+        "id": 10, "zone": "red", "title": "Смерть Сарданапала", "artist": "Эдвард Бёрн-Джонс",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/1/16/Edward_Burne-Jones_-_The_Decadence_of_the_Sardanapalus.jpg",
+    },
+    {
         "id": 3, "zone": "yellow", "title": "Поцелуй", "artist": "Густав Климт",
         "url": "https://upload.wikimedia.org/wikipedia/commons/f/f3/Gustav_Klimt_016.jpg",
     },
     {
         "id": 4, "zone": "yellow", "title": "Бал в Мулен де ла Галетт", "artist": "Огюст Ренуар",
         "url": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Renoir%2C_Pierre-Auguste_-_Dance_at_Le_Moulin_de_la_Galette%2C_1876.jpg",
+    },
+    {
+        "id": 11, "zone": "yellow", "title": "Солнце встаёт", "artist": "Клод Моне",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/0/0b/Claude_Monet_-_Impression%2C_soleil_levant.jpg",
+    },
+    {
+        "id": 12, "zone": "yellow", "title": "Прачки", "artist": "Сандро Боттичелли",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/8/88/Sandro_Botticelli_-_The_birth_of_venus.jpg",
     },
     {
         "id": 5, "zone": "blue", "title": "Абсент", "artist": "Эдгар Дега",
@@ -61,12 +77,28 @@ PAINTINGS = [
         "url": "https://upload.wikimedia.org/wikipedia/commons/a/af/Caspar_David_Friedrich_-_Wanderer_above_the_Sea_of_Fog.jpeg",
     },
     {
+        "id": 13, "zone": "blue", "title": "Покинутый дом", "artist": "Густав Климт",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/7/7e/Gustav_Klimt_036.jpg",
+    },
+    {
+        "id": 14, "zone": "blue", "title": "Старый мост", "artist": "Клод Моне",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/5/5d/Claude_Monet_The_Stacks_at_Le_porte_au_soleil.jpg",
+    },
+    {
         "id": 7, "zone": "green", "title": "Кувшинки", "artist": "Клод Моне",
         "url": "https://upload.wikimedia.org/wikipedia/commons/a/aa/Claude_Monet_-_Water_Lilies_-_1906%2C_Ryerson.jpg",
     },
     {
         "id": 8, "zone": "green", "title": "Телега для сена", "artist": "Джон Констебл",
         "url": "https://upload.wikimedia.org/wikipedia/commons/d/d9/John_Constable_The_Hay_Wain.jpg",
+    },
+    {
+        "id": 15, "zone": "green", "title": "Лесной путь", "artist": "Артур Милнер",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/7/73/Arthur_Milner_-_A_Forest_Path.jpg",
+    },
+    {
+        "id": 16, "zone": "green", "title": "Озеро в горах", "artist": "Каспар Давид Фридрих",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/0/0e/Caspar_David_Friedrich_-_The_Sea_of_Ice.jpg",
     },
 ]
 
