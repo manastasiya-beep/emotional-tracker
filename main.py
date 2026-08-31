@@ -477,23 +477,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Спасибо. Я сохранила твой ответ для дневника ✨")
         return
 
-    painting_id = context.user_data.pop("awaiting_insight", None)
-    if not painting_id:
-        return
-    painting = next(p for p in PAINTINGS if p["id"] == painting_id)
-    user = update.effective_user
-
-    content = (
-        f"Имя: {user.first_name}\n"
-        f"Дата: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
-        f"Картина: {painting['title']} — {painting['artist']}\n\n"
-        f"Инсайты:\n{update.message.text}\n"
-    )
-    buf = io.BytesIO(content.encode("utf-8"))
-    buf.name = "insights.txt"
-    await update.message.reply_document(document=buf, filename="insights.txt")
-    await update.message.reply_text("Сохранила ✨ Спасибо, что поделился(ась).")
-
 
 async def send_reminders(context: ContextTypes.DEFAULT_TYPE):
     for user in db.all_active_users():
