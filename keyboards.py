@@ -21,10 +21,10 @@ def main_menu_keyboard():
 
 def daily_focus_keyboard():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🌟 Что было хорошего?", callback_data="daily_focus:gratitude")],
+        [InlineKeyboardButton("🌟 За что я благодарен(а)?", callback_data="daily_focus:gratitude")],
         [InlineKeyboardButton("✅ Что сегодня удалось?", callback_data="daily_focus:success")],
-        [InlineKeyboardButton("🎯 Что было важным?", callback_data="daily_focus:value")],
-        [InlineKeyboardButton("💤 Что нужно для отдыха/лучшего состояния?", callback_data="daily_focus:rest")],
+        [InlineKeyboardButton("🎯 Что было для меня важным?", callback_data="daily_focus:value")],
+        [InlineKeyboardButton("💤 Что поможет улучшить состояние?", callback_data="daily_focus:rest")],
         [InlineKeyboardButton("Отключить дополнительный фокус", callback_data="daily_focus:disable")],
     ])
 

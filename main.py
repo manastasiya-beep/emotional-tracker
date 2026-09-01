@@ -223,21 +223,47 @@ async def hours_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     entries = db.entries_since(update.effective_user.id, "2000-01-01T00:00:00")
-    if not entries:
-        await update.message.reply_text("Пока нет ни одной отметки.")
+    reflections = db.daily_reflections_since(update.effective_user.id, "2000-01-01T00:00:00")
+    if not entries and not reflections:
+        await update.message.reply_text("Пока нет сохранённых записей.")
         return
 
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(["Дата", "Время", "Зона", "Эмоция", "Фокус"])
+    writer.writerow(["Тип записи", "Дата", "Время", "Зона", "Эмоция", "Фокус", "Вопрос", "Ответ"])
     for e in entries:
-        ts = datetime.fromisoformat(e["created_at"]).astimezone(LOCAL_TZ)
+        ts = datetime.fromisoformat(e["created_at"]).astimezone(user_timezone(update.effective_user.id))
         writer.writerow([
+            "Отметка состояния",
             ts.strftime("%Y-%m-%d"),
             ts.strftime("%H:%M"),
             ZONES[e["zone"]]["label"],
             e["emotion"],
             e["focus_tag"] or "",
+            "",
+            "",
+        ])
+    question_labels = {
+        "gratitude": "За что я благодарен(а) сегодня?",
+        "success": "Что сегодня удалось?",
+        "value": "Что было для меня важным?",
+        "rest": "Что поможет улучшить состояние?",
+        "feeling": "Что я чувствовал(а) в течение этой недели?",
+        "important": "Что было особенно важным или тревожным на этой неделе?",
+        "good": "Что было хорошего, ресурсного или поддерживающего на этой неделе?",
+    }
+    for reflection in reflections:
+        question_type = reflection["question_type"].split(":")[-1]
+        ts = datetime.fromisoformat(reflection["created_at"]).astimezone(user_timezone(update.effective_user.id))
+        writer.writerow([
+            "Ответ на вопрос",
+            ts.strftime("%Y-%m-%d"),
+            ts.strftime("%H:%M"),
+            "",
+            "",
+            "",
+            question_labels.get(question_type, question_type),
+            reflection["answer_text"],
         ])
 
     doc = io.BytesIO(buf.getvalue().encode("utf-8-sig"))
@@ -259,7 +285,7 @@ async def daily_focus_button(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def restore_main_menu(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
     await context.bot.send_message(
         chat_id=chat_id,
-        text="Меню",
+        text="Что дальше?",
         reply_markup=keyboards.main_menu_keyboard(),
     )
 
