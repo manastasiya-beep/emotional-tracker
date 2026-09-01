@@ -71,6 +71,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         WELCOME_TEXT.format(name=user.first_name or "друг"),
         reply_markup=keyboards.active_hours_keyboard(),
     )
+    await update.message.reply_text(
+        "Главное меню — всегда под рукой:",
+        reply_markup=keyboards.main_menu_keyboard(),
+    )
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
