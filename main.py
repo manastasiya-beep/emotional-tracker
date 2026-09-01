@@ -160,6 +160,7 @@ async def handle_weekly_reflection_choice(update: Update, context: ContextTypes.
 
     if question_type == "skip":
         await query.edit_message_text("Понятно. Можно вернуться к итогам недели позже.")
+        await restore_main_menu(context, query.from_user.id)
         return
 
     prompts = {
@@ -266,6 +267,7 @@ async def handle_deep_reflection_choice(update: Update, context: ContextTypes.DE
 
     if question_type == "skip":
         await query.edit_message_text("Понятно. Короткий дневник останется для тебя доступен позже.")
+        await restore_main_menu(context, query.from_user.id)
         return
 
     context.user_data["awaiting_daily_reflection"] = f"deep:{question_type}"
@@ -346,6 +348,7 @@ async def handle_focus(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not (zone and emotion):
         await query.edit_message_text("Что-то пошло не так, попробуй отметить момент ещё раз.")
+        await restore_main_menu(context, query.from_user.id)
         return
 
     db.add_entry(query.from_user.id, zone, emotion, focus_tag)
@@ -359,6 +362,8 @@ async def handle_focus(update: Update, context: ContextTypes.DEFAULT_TYPE):
     painting = rewards.maybe_give_weekly_reward(query.from_user.id)
     if painting:
         await send_weekly_reward(context, query.from_user.id, painting)
+
+    await restore_main_menu(context, query.from_user.id)
 
 
 async def send_daily_painting_if_due(context: ContextTypes.DEFAULT_TYPE, telegram_id: int):
