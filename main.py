@@ -385,15 +385,28 @@ async def handle_emotion(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_focus(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    _, code = query.data.split(":")
-    zone = context.user_data.pop("draft_zone", None)
-    emotion = context.user_data.pop("draft_emotion", None)
-    focus_tag = None if code == "skip" else FOCUS_TAGS[code]
+    parts = query.data.split(":", 1)
+    code = parts[1] if len(parts) == 2 else None
+    zone = context.user_data.get("draft_zone")
+    emotion = context.user_data.get("draft_emotion")
+
+    if code != "skip" and code not in FOCUS_TAGS:
+        await query.edit_message_text(
+            "Не удалось распознать этот контекст. Выбери его ещё раз:",
+            reply_markup=keyboards.focus_keyboard(),
+        )
+        return
 
     if not (zone and emotion):
         await query.edit_message_text("Что-то пошло не так, попробуй отметить момент ещё раз.")
+        context.user_data.pop("draft_zone", None)
+        context.user_data.pop("draft_emotion", None)
         await restore_main_menu(context, query.from_user.id)
         return
+
+    context.user_data.pop("draft_zone", None)
+    context.user_data.pop("draft_emotion", None)
+    focus_tag = None if code == "skip" else FOCUS_TAGS[code]
 
     db.add_entry(query.from_user.id, zone, emotion, focus_tag)
 
@@ -598,6 +611,12 @@ def main():
 
     app.add_handler(CallbackQueryHandler(handle_hours, pattern="^hours:"))
     app.add_handler(CallbackQueryHandler(handle_weekly_reflection_choice, pattern="^weekly:"))
+    app.add_handler(
+        CallbackQueryHandler(
+            handle_focus,
+            pattern=r"^focus:(meet|focus|perf|routine|personal|skip)$",
+        )
+    )
     app.add_handler(CallbackQueryHandler(handle_daily_focus_choice, pattern="^focus:"))
     app.add_handler(CallbackQueryHandler(handle_daily_reflection_choice, pattern="^dailyq:"))
     app.add_handler(CallbackQueryHandler(handle_deep_reflection_choice, pattern="^deep:"))
