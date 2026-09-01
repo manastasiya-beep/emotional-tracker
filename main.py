@@ -442,17 +442,28 @@ async def send_daily_painting_if_due(context: ContextTypes.DEFAULT_TYPE, telegra
 
     today_start = datetime.combine(now_local.date(), datetime.min.time(), tzinfo=tz).isoformat()
     entries = db.entries_since(telegram_id, today_start)
-    if len(entries) < 2:
+    if len(entries) < 1:
         return
 
-    zone_counts = Counter(e["zone"] for e in entries)
-    dominant_zone = zone_counts.most_common(1)[0][0]
-    painting = rewards.pick_painting(dominant_zone, exclude_id=user["last_painting_id"])
-    db.set_last_painting(telegram_id, painting["id"])
+    dominant_zone = rewards.dominant_zone(entries)
+    since = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    recent_paintings = db.painting_history_since(telegram_id, since)
+    excluded_ids = {
+        item["painting_id"]
+        for item in recent_paintings
+        if rewards.painting_valence(item["zone"]) == rewards.painting_valence(dominant_zone)
+    }
+    painting = rewards.pick_painting(
+        dominant_zone,
+        exclude_ids=excluded_ids,
+        fallback_zone=rewards.neighboring_zone(dominant_zone),
+    )
 
     question = DAILY_QUESTIONS[int(now_local.strftime("%j")) % len(DAILY_QUESTIONS)]
     caption = f"🖼 «{painting['title']}» — {painting['artist']}\n\n{question}"
     await context.bot.send_photo(chat_id=telegram_id, photo=painting["url"], caption=caption)
+    db.set_last_painting(telegram_id, painting["id"])
+    db.add_painting_history(telegram_id, painting["id"], painting["zone"])
     db.mark_daily_painting_sent(telegram_id, today_str)
     await context.bot.send_message(
         chat_id=telegram_id,

@@ -52,6 +52,16 @@ CREATE TABLE IF NOT EXISTS weekly_rewards (
     dominant_zone TEXT NOT NULL,
     painting_id INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS painting_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    telegram_id INTEGER NOT NULL,
+    painting_id INTEGER NOT NULL,
+    zone TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    shown_at TEXT NOT NULL,
+    FOREIGN KEY (telegram_id) REFERENCES users (telegram_id)
+);
 """
 
 
@@ -189,6 +199,23 @@ def set_last_painting(telegram_id, painting_id):
         conn.execute(
             "UPDATE users SET last_painting_id=? WHERE telegram_id=?", (painting_id, telegram_id)
         )
+
+
+def add_painting_history(telegram_id, painting_id, zone, kind="daily"):
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO painting_history (telegram_id, painting_id, zone, kind, shown_at) VALUES (?, ?, ?, ?, ?)",
+            (telegram_id, painting_id, zone, kind, datetime.now(timezone.utc).isoformat()),
+        )
+
+
+def painting_history_since(telegram_id, since_iso):
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM painting_history WHERE telegram_id=? AND shown_at >= ? ORDER BY shown_at",
+            (telegram_id, since_iso),
+        ).fetchall()
+        return [dict(row) for row in rows]
 
 
 def entries_since(telegram_id, since_iso):
