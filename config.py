@@ -100,6 +100,134 @@ PAINTINGS = [
         "id": 16, "zone": "green", "title": "Озеро в горах", "artist": "Каспар Давид Фридрих",
         "url": "https://upload.wikimedia.org/wikipedia/commons/0/0e/Caspar_David_Friedrich_-_The_Sea_of_Ice.jpg",
     },
+    {
+        "id": 17, "zone": "red", "title": "Лист набросков", "artist": "Эжен Делакруа",
+        "url": "https://www.artic.edu/iiif/2/ca266d0e-1917-b446-5267-727c6456e501/full/843,/0/default.jpg",
+    },
+    {
+        "id": 18, "zone": "red", "title": "Жерико на смертном одре", "artist": "Шарль Эмиль Калланд де Шампмартен",
+        "url": "https://www.artic.edu/iiif/2/3ef09d92-f10b-f01f-515d-c69a0a3a3e92/full/843,/0/default.jpg",
+    },
+    {
+        "id": 19, "zone": "red", "title": "Воскресение", "artist": "Чекко дель Караваджо",
+        "url": "https://www.artic.edu/iiif/2/a49c5ada-f461-d7d1-0f1b-468ac577a872/full/843,/0/default.jpg",
+    },
+    {
+        "id": 20, "zone": "red", "title": "Мильтон диктует дочери", "artist": "Генри Фюзели",
+        "url": "https://www.artic.edu/iiif/2/6006b9e7-567a-4fb8-34e2-a120886690fe/full/843,/0/default.jpg",
+    },
+    {
+        "id": 21, "zone": "red", "title": "Воскресение", "artist": "Филипп Галле",
+        "url": "https://www.artic.edu/iiif/2/7a0f6878-699d-446a-8754-7b01241cbb7b/full/843,/0/default.jpg",
+    },
+    {
+        "id": 22, "zone": "red", "title": "Купальщицы у реки", "artist": "Анри Матисс",
+        "url": "https://www.artic.edu/iiif/2/419ddce3-c90b-3d0c-43b3-73683a87bf98/full/843,/0/default.jpg",
+    },
+    {
+        "id": 23, "zone": "red", "title": "Сад земных наслаждений", "artist": "Иероним Босх",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/6/6d/The_Garden_of_Earthly_Delights_by_Bosch_High_Resolution.jpg",
+    },
+    {
+        "id": 24, "zone": "red", "title": "Остров мёртвых", "artist": "Арнольд Бёклин",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/0/0b/Arnold_Boecklin_-_Island_of_the_Dead%2C_Third_Version.JPG",
+    },
+    {
+        "id": 25, "zone": "yellow", "title": "Воскресный день на острове Гранд-Жатт", "artist": "Жорж Сёра",
+        "url": "https://www.artic.edu/iiif/2/2d484387-2509-5e8e-2c43-22f9981972eb/full/843,/0/default.jpg",
+    },
+    {
+        "id": 26, "zone": "yellow", "title": "Парижская улица в дождливый день", "artist": "Гюстав Кайботт",
+        "url": "https://www.artic.edu/iiif/2/f8fd76e9-c396-5678-36ed-6a348c904d27/full/843,/0/default.jpg",
+    },
+    {
+        "id": 27, "zone": "yellow", "title": "Купание ребёнка", "artist": "Мэри Кассат",
+        "url": "https://www.artic.edu/iiif/2/3b885ae0-4d46-5fe4-d70a-00474827f02c/full/843,/0/default.jpg",
+    },
+    {
+        "id": 28, "zone": "yellow", "title": "Фонтан виллы Торлония", "artist": "Джон Сингер Сарджент",
+        "url": "https://www.artic.edu/iiif/2/3f9aa9db-61e1-7060-fdb0-bfd7e41ddd08/full/843,/0/default.jpg",
+    },
+    {
+        "id": 29, "zone": "yellow", "title": "Балет в Парижской опере", "artist": "Эдгар Дега",
+        "url": "https://www.artic.edu/iiif/2/cb34b0a8-bc51-d063-aab1-47c7debf3a7b/full/843,/0/default.jpg",
+    },
+    {
+        "id": 30, "zone": "yellow", "title": "Мужская фигура", "artist": "Густав Климт",
+        "url": "https://www.artic.edu/iiif/2/35a41ca7-f92c-b686-c89f-978321214c5c/full/843,/0/default.jpg",
+    },
+    {
+        "id": 31, "zone": "yellow", "title": "Две сестры на террасе", "artist": "Пьер-Огюст Ренуар",
+        "url": "https://www.artic.edu/iiif/2/3a608f55-d76e-fa96-d0b1-0789fbc48f1e/full/843,/0/default.jpg",
+    },
+    {
+        "id": 32, "zone": "yellow", "title": "Звёздная ночь", "artist": "Винсент Ван Гог",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/6/66/VanGogh-starry_night_ballance1.jpg",
+    },
+    {
+        "id": 33, "zone": "blue", "title": "Мадонна в горах", "artist": "Каспар Давид Фридрих",
+        "url": "https://www.artic.edu/iiif/2/444f3e95-b21f-c821-e6af-00fe9560fb95/full/843,/0/default.jpg",
+    },
+    {
+        "id": 34, "zone": "blue", "title": "Эскиз готической арки", "artist": "Джон Эверетт Милле",
+        "url": "https://www.artic.edu/iiif/2/7035a4ba-61c4-c498-618d-8f9076889ac5/full/843,/0/default.jpg",
+    },
+    {
+        "id": 35, "zone": "blue", "title": "В море", "artist": "Арнольд Бёклин",
+        "url": "https://www.artic.edu/iiif/2/fa81bfb9-5a07-5e3c-33b4-4efde68981c8/full/843,/0/default.jpg",
+    },
+    {
+        "id": 36, "zone": "blue", "title": "Трагический актёр", "artist": "Эдуар Мане",
+        "url": "https://www.artic.edu/iiif/2/8840b41b-2425-c8aa-23fd-db834df457e0/full/843,/0/default.jpg",
+    },
+    {
+        "id": 37, "zone": "blue", "title": "Ноктюрн: синий и золотой", "artist": "Джеймс Макнил Уистлер",
+        "url": "https://www.artic.edu/iiif/2/50034c7f-ce51-00f1-430e-a6f7efc233fc/full/843,/0/default.jpg",
+    },
+    {
+        "id": 38, "zone": "blue", "title": "Полуночники", "artist": "Эдвард Хоппер",
+        "url": "https://www.artic.edu/iiif/2/831a05de-d3f6-f4fa-a460-23008dd58dda/full/843,/0/default.jpg",
+    },
+    {
+        "id": 39, "zone": "blue", "title": "Девушка у окна", "artist": "Эдвард Мунк",
+        "url": "https://www.artic.edu/iiif/2/d7df2633-3b40-f570-c906-211503a37cde/full/843,/0/default.jpg",
+    },
+    {
+        "id": 40, "zone": "blue", "title": "Старый гитарист", "artist": "Пабло Пикассо",
+        "url": "https://www.artic.edu/iiif/2/4e7f3081-179a-af18-8abd-7908a7ae8c4e/full/843,/0/default.jpg",
+    },
+    {
+        "id": 41, "zone": "green", "title": "Сток-бай-Нейленд", "artist": "Джон Констебл",
+        "url": "https://www.artic.edu/iiif/2/400ce9e8-2f67-44e2-dd68-e6c98880d27f/full/843,/0/default.jpg",
+    },
+    {
+        "id": 42, "zone": "green", "title": "Большая волна в Канагаве", "artist": "Кацусика Хокусай",
+        "url": "https://www.artic.edu/iiif/2/b3974542-b9b4-7568-fc4b-966738f61d78/full/843,/0/default.jpg",
+    },
+    {
+        "id": 43, "zone": "green", "title": "Водопад", "artist": "Анри Руссо",
+        "url": "https://www.artic.edu/iiif/2/be01ad9a-fe63-1538-2f0a-78e296b0a0d5/full/843,/0/default.jpg",
+    },
+    {
+        "id": 44, "zone": "green", "title": "Корзина яблок", "artist": "Поль Сезанн",
+        "url": "https://www.artic.edu/iiif/2/52ac8996-3460-cf71-cb42-5c4d0aa29b74/full/843,/0/default.jpg",
+    },
+    {
+        "id": 45, "zone": "green", "title": "Рыбацкие лодки", "artist": "Уильям Тёрнер",
+        "url": "https://www.artic.edu/iiif/2/8641479e-c93e-f1a8-9925-19be061706da/full/843,/0/default.jpg",
+    },
+    {
+        "id": 46, "zone": "green", "title": "Воспоминание об Италии", "artist": "Камиль Коро",
+        "url": "https://www.artic.edu/iiif/2/ab107179-7106-937e-7676-e0263b02e530/full/843,/0/default.jpg",
+    },
+    {
+        "id": 47, "zone": "green", "title": "Махана но Atua", "artist": "Поль Гоген",
+        "url": "https://www.artic.edu/iiif/2/a4bef587-48a4-d186-813d-f297441b1ab3/full/843,/0/default.jpg",
+    },
+    {
+        "id": 48, "zone": "green", "title": "Цветочные облака", "artist": "Одилон Редон",
+        "url": "https://www.artic.edu/iiif/2/fb2077d9-82cc-ca7e-f450-5471d7f78c9a/full/843,/0/default.jpg",
+    },
 ]
 
 DAILY_QUESTIONS = [

@@ -84,5 +84,5 @@ def emotion_keyboard(zone):
 
 
 def focus_keyboard():
-    rows = [[InlineKeyboardButton(label, callback_data=f"focus:{code}")] for code, label in FOCUS_TAGS.items()]
+    rows = [[InlineKeyboardButton(label, callback_data=f"moment_focus:{code}")] for code, label in FOCUS_TAGS.items()]
     return InlineKeyboardMarkup(rows)

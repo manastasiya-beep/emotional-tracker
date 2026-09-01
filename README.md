@@ -15,6 +15,9 @@
 
 ## Установка и запуск
 
+Рабочая схема запуска и публикации изменений описана в [OPERATING_GUIDE.md](OPERATING_GUIDE.md).
+Это главный документ проекта.
+
 ### Требования
 - Python 3.8+
 - Telegram Bot API token
@@ -39,13 +42,20 @@
 
 4. Создайте файл `.env` с вашим токеном:
    ```
-   TELEGRAM_BOT_TOKEN=your_token_here
+   BOT_TOKEN=your_token_here
    ```
 
 5. Запустите бота:
    ```bash
    python main.py
    ```
+
+### Production
+
+Для production используйте один облачный Background Worker, подключённый к ветке
+`main`, с командой `python main.py` и переменной `BOT_TOKEN`. Не запускайте этот
+же токен локально. Точный порядок действий находится в
+[OPERATING_GUIDE.md](OPERATING_GUIDE.md).
 
 ---
 

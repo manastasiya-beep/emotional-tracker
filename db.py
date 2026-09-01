@@ -1,7 +1,7 @@
 import os
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 DB_PATH = os.getenv("DB_PATH", "trecker.db")
 
@@ -174,12 +174,14 @@ def should_send_daily_painting(telegram_id, today_str):
         row = conn.execute(
             "SELECT last_mosaic_date FROM users WHERE telegram_id=?", (telegram_id,)
         ).fetchone()
-        already_sent = bool(row) and row["last_mosaic_date"] == today_str
-        if not already_sent:
-            conn.execute(
-                "UPDATE users SET last_mosaic_date=? WHERE telegram_id=?", (today_str, telegram_id)
-            )
-        return not already_sent
+        return not row or row["last_mosaic_date"] != today_str
+
+
+def mark_daily_painting_sent(telegram_id, today_str):
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE users SET last_mosaic_date=? WHERE telegram_id=?", (today_str, telegram_id)
+        )
 
 
 def set_last_painting(telegram_id, painting_id):

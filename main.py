@@ -1,5 +1,9 @@
 import csv
 import io
+import os
+import atexit
+import fcntl
+import tempfile
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 
@@ -37,6 +41,36 @@ from config import (
 # a user types (e.g. via /hours) are interpreted as server-clock hours, not
 # their real local hours. A real fix needs the user to tell us their offset.
 LOCAL_TZ = datetime.now().astimezone().tzinfo
+
+BOT_LOCK_PATH = os.path.join(tempfile.gettempdir(), "artoffocus-bot.lock")
+_bot_lock_file = None
+
+
+def release_bot_lock():
+    global _bot_lock_file
+    if _bot_lock_file is None:
+        return
+
+    try:
+        fcntl.flock(_bot_lock_file.fileno(), fcntl.LOCK_UN)
+    except OSError:
+        pass
+
+    _bot_lock_file.close()
+    _bot_lock_file = None
+
+
+def acquire_bot_lock():
+    global _bot_lock_file
+    lock_file = open(BOT_LOCK_PATH, "w")
+    try:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        lock_file.close()
+        raise SystemExit("Bot is already running; refusing to start a second polling instance.")
+
+    _bot_lock_file = lock_file
+    atexit.register(release_bot_lock)
 
 
 def user_timezone(telegram_id: int):
@@ -78,7 +112,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         WELCOME_TEXT.format(name=user.first_name or "друг"),
-        reply_markup=keyboards.main_menu_keyboard(),
+        reply_markup=keyboards.active_hours_keyboard(),
     )
 
 
@@ -237,15 +271,16 @@ async def handle_daily_focus_choice(update: Update, context: ContextTypes.DEFAUL
 
     if question_type == "disable":
         db.set_daily_focus(query.from_user.id, None)
-        await query.edit_message_text("Дополнительный фокус дня отключён.")
-        await restore_main_menu(context, query.from_user.id)
+        await query.edit_message_text(
+            "Дополнительный фокус дня отключён.",
+            reply_markup=keyboards.main_menu_keyboard(),
+        )
         return
 
     prompt = DAILY_FOCUS_PROMPTS[question_type]
     db.set_daily_focus(query.from_user.id, question_type)
     context.user_data["awaiting_daily_focus_response"] = question_type
     await query.edit_message_text(f"{prompt}\n\nНапиши коротко в одном сообщении — ответ сохранится в дневник.")
-    await restore_main_menu(context, query.from_user.id)
 
 
 async def handle_daily_reflection_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -364,7 +399,10 @@ async def handle_focus(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     since = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
     week_count = len(db.entries_since(query.from_user.id, since))
-    await query.edit_message_text(f"Записано ✅ {emotion}. Отметок за неделю: {week_count}")
+    await query.edit_message_text(
+        f"Записано ✅ {emotion}. Отметок за неделю: {week_count}",
+        reply_markup=keyboards.main_menu_keyboard(),
+    )
 
     await send_daily_painting_if_due(context, query.from_user.id)
 
@@ -372,7 +410,6 @@ async def handle_focus(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if painting:
         await send_weekly_reward(context, query.from_user.id, painting)
 
-    await restore_main_menu(context, query.from_user.id)
 
 
 async def send_daily_painting_if_due(context: ContextTypes.DEFAULT_TYPE, telegram_id: int):
@@ -403,6 +440,7 @@ async def send_daily_painting_if_due(context: ContextTypes.DEFAULT_TYPE, telegra
     question = DAILY_QUESTIONS[int(now_local.strftime("%j")) % len(DAILY_QUESTIONS)]
     caption = f"🖼 «{painting['title']}» — {painting['artist']}\n\n{question}"
     await context.bot.send_photo(chat_id=telegram_id, photo=painting["url"], caption=caption)
+    db.mark_daily_painting_sent(telegram_id, today_str)
     await context.bot.send_message(
         chat_id=telegram_id,
         text="Если хочешь, можно быстро закрыть день:",
@@ -478,8 +516,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Напиши короткий ответ, чтобы я сохранила его для тебя.")
             return
         db.add_daily_reflection(update.effective_user.id, f"daily_focus:{daily_focus_response_type}", answer)
-        await update.message.reply_text("Спасибо. Я сохранила ответ на дополнительный фокус дня ✨")
-        await restore_main_menu(context, update.effective_user.id)
+        await update.message.reply_text(
+            "Спасибо. Я сохранила ответ на дополнительный фокус дня ✨",
+            reply_markup=keyboards.main_menu_keyboard(),
+        )
         return
 
     weekly_reflection_type = context.user_data.pop("awaiting_weekly_reflection", None)
@@ -540,6 +580,7 @@ async def post_init(application: Application):
 
 
 def main():
+    acquire_bot_lock()
     db.init_db()
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
@@ -563,7 +604,7 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_energy, pattern="^nrg:"))
     app.add_handler(CallbackQueryHandler(handle_zone, pattern="^zone:"))
     app.add_handler(CallbackQueryHandler(handle_emotion, pattern="^emo:"))
-    app.add_handler(CallbackQueryHandler(handle_focus, pattern="^focus:"))
+    app.add_handler(CallbackQueryHandler(handle_focus, pattern="^moment_focus:"))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
