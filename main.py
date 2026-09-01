@@ -267,7 +267,7 @@ async def restore_main_menu(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
 async def handle_daily_focus_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    _, question_type = query.data.split(":")
+    _, question_type = query.data.split(":", 1)
 
     if question_type == "disable":
         db.set_daily_focus(query.from_user.id, None)
@@ -617,7 +617,11 @@ def main():
             pattern=r"^focus:(meet|focus|perf|routine|personal|skip)$",
         )
     )
-    app.add_handler(CallbackQueryHandler(handle_daily_focus_choice, pattern="^focus:"))
+    app.add_handler(CallbackQueryHandler(
+        handle_daily_focus_choice,
+        pattern=r"^focus:(gratitude|success|value|rest|disable)$",
+    ))
+    app.add_handler(CallbackQueryHandler(handle_daily_focus_choice, pattern="^daily_focus:"))
     app.add_handler(CallbackQueryHandler(handle_daily_reflection_choice, pattern="^dailyq:"))
     app.add_handler(CallbackQueryHandler(handle_deep_reflection_choice, pattern="^deep:"))
     app.add_handler(CallbackQueryHandler(handle_energy, pattern="^nrg:"))
