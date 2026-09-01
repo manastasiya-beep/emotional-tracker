@@ -414,8 +414,8 @@ async def handle_focus(update: Update, context: ContextTypes.DEFAULT_TYPE):
     week_count = len(db.entries_since(query.from_user.id, since))
     await query.edit_message_text(
         f"Записано ✅ {emotion}. Отметок за неделю: {week_count}",
-        reply_markup=keyboards.main_menu_keyboard(),
     )
+    await restore_main_menu(context, query.from_user.id)
 
     await send_daily_painting_if_due(context, query.from_user.id)
 
