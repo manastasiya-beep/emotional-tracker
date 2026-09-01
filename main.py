@@ -212,6 +212,14 @@ async def daily_focus_button(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
 
 
+async def restore_main_menu(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text="Меню",
+        reply_markup=keyboards.main_menu_keyboard(),
+    )
+
+
 async def handle_daily_focus_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -220,12 +228,14 @@ async def handle_daily_focus_choice(update: Update, context: ContextTypes.DEFAUL
     if question_type == "disable":
         db.set_daily_focus(query.from_user.id, None)
         await query.edit_message_text("Дополнительный фокус дня отключён.")
+        await restore_main_menu(context, query.from_user.id)
         return
 
     prompt = DAILY_FOCUS_PROMPTS[question_type]
     db.set_daily_focus(query.from_user.id, question_type)
     context.user_data["awaiting_daily_focus_response"] = question_type
     await query.edit_message_text(f"{prompt}\n\nНапиши коротко в одном сообщении — ответ сохранится в дневник.")
+    await restore_main_menu(context, query.from_user.id)
 
 
 async def handle_daily_reflection_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -455,6 +465,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         db.add_daily_reflection(update.effective_user.id, f"daily_focus:{daily_focus_response_type}", answer)
         await update.message.reply_text("Спасибо. Я сохранила ответ на дополнительный фокус дня ✨")
+        await restore_main_menu(context, update.effective_user.id)
         return
 
     weekly_reflection_type = context.user_data.pop("awaiting_weekly_reflection", None)
@@ -465,6 +476,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         db.add_daily_reflection(update.effective_user.id, f"weekly:{weekly_reflection_type}", answer)
         await update.message.reply_text("Спасибо. Я сохранила твой ответ в недельную рефлексию ✨")
+        await restore_main_menu(context, update.effective_user.id)
         return
 
     daily_reflection_type = context.user_data.pop("awaiting_daily_reflection", None)
@@ -475,6 +487,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         db.add_daily_reflection(update.effective_user.id, daily_reflection_type, answer)
         await update.message.reply_text("Спасибо. Я сохранила твой ответ для дневника ✨")
+        await restore_main_menu(context, update.effective_user.id)
         return
 
 
