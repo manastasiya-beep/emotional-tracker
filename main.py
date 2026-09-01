@@ -66,13 +66,18 @@ WELCOME_TEXT = (
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    existing = db.get_user(user.id)
     db.upsert_user(user.id, user.first_name or "друг")
+
+    if existing is None:
+        await update.message.reply_text(
+            WELCOME_TEXT.format(name=user.first_name or "друг"),
+            reply_markup=keyboards.active_hours_keyboard(),
+        )
+        return
+
     await update.message.reply_text(
         WELCOME_TEXT.format(name=user.first_name or "друг"),
-        reply_markup=keyboards.active_hours_keyboard(),
-    )
-    await update.message.reply_text(
-        "Главное меню — всегда под рукой:",
         reply_markup=keyboards.main_menu_keyboard(),
     )
 
