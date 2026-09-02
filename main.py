@@ -333,16 +333,76 @@ async def handle_daily_reflection_choice(update: Update, context: ContextTypes.D
 async def handle_deep_reflection_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    _, question_type = query.data.split(":")
+    _, question_type = query.data.split(":", 1)
 
     if question_type == "skip":
+        context.user_data.pop("deep_reflection_queue", None)
+        context.user_data.pop("awaiting_deep_reflection_question", None)
         await query.edit_message_text("Понятно. Короткий дневник останется для тебя доступен позже.")
         await restore_main_menu(context, query.from_user.id)
         return
 
-    context.user_data["awaiting_daily_reflection"] = f"deep:{question_type}"
+    context.user_data["awaiting_deep_reflection_question"] = question_type
     prompt = DEEP_REFLECTION_QUESTIONS[question_type]
-    await query.edit_message_text(f"{prompt}\n\nНапиши коротко в одном сообщении.")
+    await query.edit_message_text(
+        f"{prompt}\n\nНапиши ответ или пропусти вопрос.",
+        reply_markup=keyboards.deep_answer_keyboard(question_type),
+    )
+
+
+async def handle_deep_reflection_skip(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    _, question_type = query.data.split(":", 1)
+    queue = context.user_data.get("deep_reflection_queue", [])
+    if question_type in queue:
+        queue.remove(question_type)
+    context.user_data.pop("awaiting_deep_reflection_question", None)
+    await ask_next_deep_question(query, context)
+
+
+async def handle_deep_reflection_finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    context.user_data.pop("deep_reflection_queue", None)
+    context.user_data.pop("awaiting_deep_reflection_question", None)
+    await query.edit_message_text("Хорошо. Вернёмся к дневнику позже.")
+    await restore_main_menu(context, query.from_user.id)
+
+
+async def ask_next_deep_question(query, context):
+    queue = context.user_data.get("deep_reflection_queue", [])
+    if not queue:
+        context.user_data.pop("deep_reflection_queue", None)
+        await query.edit_message_text("Глубокая рефлексия завершена.")
+        await restore_main_menu(context, query.from_user.id)
+        return
+
+    question_type = queue[0]
+    context.user_data["awaiting_deep_reflection_question"] = question_type
+    prompt = DEEP_REFLECTION_QUESTIONS[question_type]
+    await query.edit_message_text(
+        f"{prompt}\n\nНапиши ответ или пропусти вопрос.",
+        reply_markup=keyboards.deep_answer_keyboard(question_type),
+    )
+
+
+async def send_next_deep_question(context, chat_id):
+    queue = context.user_data.get("deep_reflection_queue", [])
+    if not queue:
+        context.user_data.pop("deep_reflection_queue", None)
+        await context.bot.send_message(chat_id=chat_id, text="Глубокая рефлексия завершена.")
+        await restore_main_menu(context, chat_id)
+        return
+
+    question_type = queue[0]
+    context.user_data["awaiting_deep_reflection_question"] = question_type
+    prompt = DEEP_REFLECTION_QUESTIONS[question_type]
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=f"{prompt}\n\nНапиши ответ или пропусти вопрос.",
+        reply_markup=keyboards.deep_answer_keyboard(question_type),
+    )
 
 
 async def timezone_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -439,11 +499,9 @@ async def handle_focus(update: Update, context: ContextTypes.DEFAULT_TYPE):
     since = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
     week_count = len(db.entries_since(query.from_user.id, since))
     if code == "deep":
-        await query.edit_message_text(
-            f"Записано ✅ {emotion}. Отметок за неделю: {week_count}\n\n"
-            "Посмотрим глубже — выбери один вопрос:",
-            reply_markup=keyboards.deep_reflection_keyboard(),
-        )
+        context.user_data["deep_reflection_queue"] = list(DEEP_REFLECTION_QUESTIONS)
+        await query.edit_message_text(f"Записано ✅ {emotion}.")
+        await ask_next_deep_question(query, context)
     else:
         await query.edit_message_text(
             f"Записано ✅ {emotion}. Отметок за неделю: {week_count}",
@@ -566,6 +624,20 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Часовой пояс сохранён: {tz_name}.")
         return
 
+    deep_question_type = context.user_data.get("awaiting_deep_reflection_question")
+    if deep_question_type:
+        answer = update.message.text.strip()
+        if not answer:
+            await update.message.reply_text("Напиши ответ или нажми «Пропустить».")
+            return
+        db.add_daily_reflection(update.effective_user.id, f"deep:{deep_question_type}", answer)
+        context.user_data.pop("awaiting_deep_reflection_question", None)
+        queue = context.user_data.get("deep_reflection_queue", [])
+        if deep_question_type in queue:
+            queue.remove(deep_question_type)
+        await send_next_deep_question(context, update.effective_user.id)
+        return
+
     daily_focus_response_type = context.user_data.pop("awaiting_daily_focus_response", None)
     if daily_focus_response_type:
         answer = update.message.text.strip()
@@ -668,6 +740,8 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_daily_focus_choice, pattern="^daily_focus:"))
     app.add_handler(CallbackQueryHandler(handle_daily_reflection_choice, pattern="^dailyq:"))
     app.add_handler(CallbackQueryHandler(handle_deep_reflection_choice, pattern="^deep:"))
+    app.add_handler(CallbackQueryHandler(handle_deep_reflection_skip, pattern="^deep_skip:"))
+    app.add_handler(CallbackQueryHandler(handle_deep_reflection_finish, pattern="^deep_finish$"))
     app.add_handler(CallbackQueryHandler(handle_energy, pattern="^nrg:"))
     app.add_handler(CallbackQueryHandler(handle_zone, pattern="^zone:"))
     app.add_handler(CallbackQueryHandler(handle_emotion, pattern="^emo:"))

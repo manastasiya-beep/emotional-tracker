@@ -55,6 +55,13 @@ def deep_reflection_keyboard():
     ])
 
 
+def deep_answer_keyboard(question_type):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("Пропустить", callback_data=f"deep_skip:{question_type}")],
+        [InlineKeyboardButton("Закончить", callback_data="deep_finish")],
+    ])
+
+
 def energy_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("⚡ Много энергии", callback_data="nrg:high")],
