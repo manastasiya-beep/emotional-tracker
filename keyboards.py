@@ -42,7 +42,6 @@ def daily_reflection_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🌟 Что сегодня было хорошего?", callback_data="dailyq:gratitude")],
         [InlineKeyboardButton("✅ Что сегодня удалось?", callback_data="dailyq:success")],
-        [InlineKeyboardButton("🧠 Хочу глубже", callback_data="dailyq:deep")],
         [InlineKeyboardButton("Пропустить", callback_data="dailyq:skip")],
     ])
 
@@ -85,4 +84,5 @@ def emotion_keyboard(zone):
 
 def focus_keyboard():
     rows = [[InlineKeyboardButton(label, callback_data=f"moment_focus:{code}")] for code, label in FOCUS_TAGS.items()]
+    rows.append([InlineKeyboardButton("🔎 Посмотреть глубже", callback_data="moment_focus:deep")])
     return InlineKeyboardMarkup(rows)

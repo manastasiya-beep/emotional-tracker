@@ -416,7 +416,7 @@ async def handle_focus(update: Update, context: ContextTypes.DEFAULT_TYPE):
     zone = context.user_data.get("draft_zone")
     emotion = context.user_data.get("draft_emotion")
 
-    if code != "skip" and code not in FOCUS_TAGS:
+    if code != "skip" and code not in FOCUS_TAGS and code != "deep":
         await query.edit_message_text(
             "Не удалось распознать этот контекст. Выбери его ещё раз:",
             reply_markup=keyboards.focus_keyboard(),
@@ -432,16 +432,23 @@ async def handle_focus(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data.pop("draft_zone", None)
     context.user_data.pop("draft_emotion", None)
-    focus_tag = None if code == "skip" else FOCUS_TAGS[code]
+    focus_tag = None if code in {"skip", "deep"} else FOCUS_TAGS[code]
 
     db.add_entry(query.from_user.id, zone, emotion, focus_tag)
 
     since = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
     week_count = len(db.entries_since(query.from_user.id, since))
-    await query.edit_message_text(
-        f"Записано ✅ {emotion}. Отметок за неделю: {week_count}",
-    )
-    await restore_main_menu(context, query.from_user.id)
+    if code == "deep":
+        await query.edit_message_text(
+            f"Записано ✅ {emotion}. Отметок за неделю: {week_count}\n\n"
+            "Посмотрим глубже — выбери один вопрос:",
+            reply_markup=keyboards.deep_reflection_keyboard(),
+        )
+    else:
+        await query.edit_message_text(
+            f"Записано ✅ {emotion}. Отметок за неделю: {week_count}",
+        )
+        await restore_main_menu(context, query.from_user.id)
 
     await send_daily_painting_if_due(context, query.from_user.id)
 
