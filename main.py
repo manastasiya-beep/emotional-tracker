@@ -447,6 +447,7 @@ async def handle_energy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     _, energy = query.data.split(":")
+    context.user_data["draft_energy"] = energy
     await query.edit_message_text("Приятно это тебе сейчас или нет?", reply_markup=keyboards.valence_keyboard(energy))
 
 
@@ -465,6 +466,35 @@ async def handle_emotion(update: Update, context: ContextTypes.DEFAULT_TYPE):
     emotion = ZONES[zone]["emotions"][int(idx)]
     context.user_data["draft_emotion"] = emotion
     await query.edit_message_text("На чём был фокус? (по желанию)", reply_markup=keyboards.focus_keyboard())
+
+
+async def handle_moment_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    _, target = query.data.split(":", 1)
+
+    if target == "energy":
+        context.user_data.pop("draft_energy", None)
+        context.user_data.pop("draft_zone", None)
+        context.user_data.pop("draft_emotion", None)
+        await query.edit_message_text("Как ты сейчас?", reply_markup=keyboards.energy_keyboard())
+        return
+
+    if target == "zone":
+        energy = context.user_data.get("draft_energy")
+        context.user_data.pop("draft_zone", None)
+        context.user_data.pop("draft_emotion", None)
+        if energy:
+            await query.edit_message_text(
+                "Приятно это тебе сейчас или нет?",
+                reply_markup=keyboards.valence_keyboard(energy),
+            )
+        return
+
+    zone = context.user_data.get("draft_zone")
+    context.user_data.pop("draft_emotion", None)
+    if zone:
+        await query.edit_message_text("Какая эмоция ближе всего?", reply_markup=keyboards.emotion_keyboard(zone))
 
 
 async def handle_focus(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -733,6 +763,7 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_energy, pattern="^nrg:"))
     app.add_handler(CallbackQueryHandler(handle_zone, pattern="^zone:"))
     app.add_handler(CallbackQueryHandler(handle_emotion, pattern="^emo:"))
+    app.add_handler(CallbackQueryHandler(handle_moment_back, pattern="^moment_back:"))
     app.add_handler(CallbackQueryHandler(handle_focus, pattern="^moment_focus:"))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))

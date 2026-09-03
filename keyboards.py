@@ -80,16 +80,18 @@ def valence_keyboard(energy):
             InlineKeyboardButton("🔵 Неприятно", callback_data="zone:blue"),
             InlineKeyboardButton("🟢 Приятно", callback_data="zone:green"),
         ]
-    return InlineKeyboardMarkup([row])
+    return InlineKeyboardMarkup([row, [InlineKeyboardButton("⬅️ Назад", callback_data="moment_back:energy")]])
 
 
 def emotion_keyboard(zone):
     emotions = ZONES[zone]["emotions"]
     rows = [[InlineKeyboardButton(e, callback_data=f"emo:{zone}:{i}")] for i, e in enumerate(emotions)]
+    rows.append([InlineKeyboardButton("⬅️ Назад", callback_data="moment_back:zone")])
     return InlineKeyboardMarkup(rows)
 
 
 def focus_keyboard():
     rows = [[InlineKeyboardButton(label, callback_data=f"moment_focus:{code}")] for code, label in FOCUS_TAGS.items()]
     rows.append([InlineKeyboardButton("🔎 Посмотреть глубже", callback_data="moment_focus:deep")])
+    rows.append([InlineKeyboardButton("⬅️ Назад", callback_data="moment_back:emotion")])
     return InlineKeyboardMarkup(rows)
