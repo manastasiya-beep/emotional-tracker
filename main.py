@@ -128,8 +128,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/export — выгрузить все отметки файлом (CSV)\n"
         "/hours — поменять активные часы\n"
         "/timezone — указать часовой пояс\n"
-        "/pause — приостановить напоминания\n"
-        "/resume — снова включить напоминания\n\n"
+        "/pause — приостановить эмоциональные напоминания\n"
+        "/resume — включить эмоциональные напоминания\n\n"
         f"Кнопка «{keyboards.MOMENT_BUTTON_TEXT}» всегда доступна, чтобы отметить момент самому.",
         reply_markup=keyboards.main_menu_keyboard(),
     )
@@ -137,12 +137,17 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def pause_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.set_paused(update.effective_user.id, True)
-    await update.message.reply_text("Напоминания приостановлены. /resume — включить обратно.")
+    await update.message.reply_text(
+        "Эмоциональные напоминания приостановлены. /resume — включить обратно."
+    )
 
 
 async def resume_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.set_paused(update.effective_user.id, False)
-    await update.message.reply_text("Напоминания снова включены.", reply_markup=keyboards.main_menu_keyboard())
+    await update.message.reply_text(
+        "Эмоциональные напоминания снова включены.",
+        reply_markup=keyboards.main_menu_keyboard(),
+    )
 
 
 def build_weekly_summary(telegram_id: int) -> str:
@@ -720,8 +725,8 @@ async def post_init(application: Application):
         BotCommand("timezone", "Указать часовой пояс"),
         BotCommand("progress", "Отметки за неделю"),
         BotCommand("export", "Выгрузить все отметки (CSV)"),
-        BotCommand("pause", "Приостановить напоминания"),
-        BotCommand("resume", "Включить напоминания снова"),
+        BotCommand("pause", "Пауза эмоциональных напоминаний"),
+        BotCommand("resume", "Включить эмоциональные напоминания"),
         BotCommand("help", "Как это работает"),
     ])
 
