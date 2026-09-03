@@ -277,7 +277,7 @@ async def moment_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def daily_focus_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Выбери дополнительный фокус дня. Один вопрос будет приходить в конце дня.",
+        "Выбери дополнительный вопрос и ответь на него, если хочется.",
         reply_markup=keyboards.daily_focus_keyboard(),
     )
 
@@ -304,7 +304,6 @@ async def handle_daily_focus_choice(update: Update, context: ContextTypes.DEFAUL
         return
 
     prompt = DAILY_FOCUS_PROMPTS[question_type]
-    db.set_daily_focus(query.from_user.id, question_type)
     context.user_data["awaiting_daily_focus_response"] = question_type
     await query.edit_message_text(f"{prompt}\n\nНапиши коротко в одном сообщении — ответ сохранится в дневник.")
 
@@ -556,17 +555,6 @@ async def send_daily_painting_if_due(context: ContextTypes.DEFAULT_TYPE, telegra
     db.set_last_painting(telegram_id, painting["id"])
     db.add_painting_history(telegram_id, painting["id"], painting["zone"])
     db.mark_daily_painting_sent(telegram_id, today_str)
-    await context.bot.send_message(
-        chat_id=telegram_id,
-        text="Если хочешь, можно быстро закрыть день:",
-        reply_markup=keyboards.daily_reflection_keyboard(),
-    )
-
-    focus = db.get_daily_focus(telegram_id)
-    if focus and focus.get("enabled"):
-        prompt = DAILY_FOCUS_PROMPTS[focus["question_type"]]
-        await context.bot.send_message(chat_id=telegram_id, text=f"Доп. фокус дня: {prompt}\n\nНапиши коротко в одном сообщении.")
-        context.user_data["awaiting_daily_focus_response"] = focus["question_type"]
 
 
 async def send_weekly_reward(context: ContextTypes.DEFAULT_TYPE, telegram_id: int, painting: dict):

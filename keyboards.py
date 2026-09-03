@@ -73,7 +73,7 @@ def valence_keyboard(energy):
     if energy == "high":
         row = [
             InlineKeyboardButton("🔴 Неприятно", callback_data="zone:red"),
-            InlineKeyboardButton("🟡 Приятно", callback_data="zone:yellow"),
+            InlineKeyboardButton("🟢 Приятно", callback_data="zone:yellow"),
         ]
     else:
         row = [
